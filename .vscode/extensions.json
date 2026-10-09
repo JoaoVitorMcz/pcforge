@@ -1,0 +1,4 @@
+{
+  // Edita os .drawio.png de docs/diagramas direto no editor, sem sair do VS Code.
+  "recommendations": ["hediet.vscode-drawio"]
+}
