@@ -1,14 +1,14 @@
 import "dotenv/config";
-import express, { Request, Response, NextFunction } from "express";
+import express from "express";
 import cors from "cors";
-import multer from "multer";
 import path from "path";
 import sequelize from "./config/database/index";
+import { conectarRedis } from "./config/redis";
 // Registra as quatro tabelas do RBAC e as duas relacoes N:N no sequelize.sync().
 // Sem este import, o include de roles no login nao encontra a associacao.
 import "./models/rbac.associations";
 import { uploadDir } from "./config/upload";
-import { UploadValidationError } from "./utils/upload.errors";
+import errorMiddleware from "./middleware/error.middleware";
 import clienteRoutes from "./routes/cliente.routes";
 import produtoRoutes from "./routes/produto.routes";
 import categoriaRoutes from "./routes/categoria.routes";
@@ -58,26 +58,12 @@ app.use("/upload", uploadRoutes);
 app.use("/pagamentos", pagamentoRoutes);
 app.use("/admin", dashboardRoutes);
 
-// Middleware de tratamento de erros para uploads (Multer)
-app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
-  if (err instanceof multer.MulterError) {
-    if (err.code === "LIMIT_FILE_SIZE") {
-      return res.status(413).json({ error: "Arquivo excede o tamanho máximo de 5MB." });
-    }
-    return res.status(400).json({ error: `Erro no upload: ${err.message}` });
-  }
-
-  if (err instanceof UploadValidationError) {
-    return res.status(400).json({ error: err.message });
-  }
-
-  console.error(err);
-  return res.status(500).json({ error: "Erro interno do servidor." });
-});
+app.use(errorMiddleware);
 
 export async function startServer() {
   try {
     await sequelize.sync();
+    await conectarRedis();
     return app.listen(PORT, () => {
       console.log(`Servidor rodando na porta ${PORT}`);
     });

@@ -20,6 +20,18 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    container_name: pcforge_redis
+    restart: unless-stopped
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   backend:
     build:
       context: ./TechAcademy5back
@@ -38,13 +50,14 @@ services:
       FRONTEND_URL: ${FRONTEND_URL}
       CORS_ORIGINS: ${CORS_ORIGINS}
       LEGACY_IMAGES_DIR: /app/catalogo-imagens
-    # Publica a API na rede local para o desenvolvimento do app mobile: o
-    # celular nao resolve pcforge.local nem confia no certificado autoassinado
-    # do Nginx. Acesso via http://<IP-da-maquina>:3000, sem TLS.
+      REDIS_URL: ${REDIS_URL}
+    # Removida na SCRUM-42, quando o mobile passar a usar o gateway Nginx.
     ports:
       - "3000:3000"
     depends_on:
       mysql:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     networks:
       - app-network
