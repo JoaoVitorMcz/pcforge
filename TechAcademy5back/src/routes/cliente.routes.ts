@@ -5,16 +5,17 @@ import {
   authorizeRole,
   selfOrAdminMiddleware,
 } from "../config/auth.middleware";
+import { validarEntrada, validarCriacaoCliente, validarAtualizacaoCliente } from "../utils/dto";
 
 const router = Router();
 
 // Rotas públicas
-router.post("/", ClienteController.criarCliente);
+router.post("/", validarEntrada(validarCriacaoCliente), ClienteController.criarCliente);
 router.post("/login", ClienteController.loginCliente);
 
 //  (cliente autenticado)
 router.get("/:id", authMiddleware, selfOrAdminMiddleware(), ClienteController.buscarClientePorId);
-router.put("/:id", authMiddleware, selfOrAdminMiddleware(), ClienteController.atualizarCliente);
+router.put("/:id", authMiddleware, selfOrAdminMiddleware(), validarEntrada(validarAtualizacaoCliente), ClienteController.atualizarCliente);
 router.delete("/:id", authMiddleware, selfOrAdminMiddleware(), ClienteController.desativarCliente);
 
 //  (só admin)
