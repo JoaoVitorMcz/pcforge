@@ -39,7 +39,7 @@ describe("Upload - integração", () => {
       .attach("imagem", Buffer.from("fake image"), { filename: "malicious.exe", contentType: "image/jpeg" });
 
     expect(res.status).toBe(400);
-    expect(res.body).toHaveProperty("error");
+    expect(res.body.erro).toMatchObject({ codigo: "UPLOAD_INVALIDO" });
   });
 
   it("Tamanho excedido deve retornar 413", async () => {
@@ -50,7 +50,7 @@ describe("Upload - integração", () => {
       .attach("imagem", big, { filename: "big.jpg", contentType: "image/jpeg" });
 
     expect(res.status).toBe(413);
-    expect(res.body).toHaveProperty("error");
+    expect(res.body.erro).toMatchObject({ codigo: "UPLOAD_INVALIDO" });
   });
 
   it("Colisão de nome: dois uploads com mesmo originalname geram nomes diferentes", async () => {

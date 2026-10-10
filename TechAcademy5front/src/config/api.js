@@ -39,6 +39,18 @@ export function buildAssetUrl(path) {
   return `${CONFIGURED_API_BASE_URL}${normalizedPath}`;
 }
 
+async function mensagemErro(response) {
+  const corpo = await response.text().catch(() => "");
+  if (!corpo) return `Erro HTTP ${response.status}`;
+
+  try {
+    const dados = JSON.parse(corpo);
+    return dados?.erro?.mensagem ?? dados?.mensagem ?? dados?.error ?? corpo;
+  } catch {
+    return corpo;
+  }
+}
+
 function normalizeProduct(product) {
   const rawPrice = product.preco ?? product.valor ?? 0;
   const numericPrice =
@@ -64,7 +76,7 @@ export async function fetchJson(path) {
   });
 
   if (!response.ok) {
-    throw new Error(`Erro HTTP ${response.status} ao buscar ${path}`);
+    throw new Error(await mensagemErro(response));
   }
 
   const data = await response.json();
@@ -89,9 +101,7 @@ export async function sendJson(path, method, body) {
   });
 
   if (!response.ok) {
-    const errorBody = await response.text().catch(() => "");
-    const detail = errorBody ? ` - ${errorBody}` : "";
-    throw new Error(`Erro HTTP ${response.status} ao enviar ${method} para ${path}${detail}`);
+    throw new Error(await mensagemErro(response));
   }
 
   const contentType = response.headers.get("content-type") || "";
@@ -120,9 +130,7 @@ export async function sendFormData(path, method, body) {
   });
 
   if (!response.ok) {
-    const errorBody = await response.text().catch(() => "");
-    const detail = errorBody ? ` - ${errorBody}` : "";
-    throw new Error(`Erro HTTP ${response.status} ao enviar ${method} para ${path}${detail}`);
+    throw new Error(await mensagemErro(response));
   }
 
   const contentType = response.headers.get("content-type") || "";
