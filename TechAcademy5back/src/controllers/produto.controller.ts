@@ -2,6 +2,15 @@ import { Request, Response } from "express";
 import Produto from "../models/Produto";
 import { Op } from "sequelize";
 import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination";
+import { cacheAside, invalidarCachePorPrefixo } from "../utils/cache";
+
+const TTL_PRODUTOS_SEGUNDOS = 5 * 60;
+
+const chaveProdutos = (req: Request, destaque = false): string => {
+  const { page, limit } = getPaginationParams(req);
+  const paginado = req.query.page !== undefined || req.query.limit !== undefined;
+  return `produtos:${destaque ? "destaque" : "lista"}:pagina=${page}:limite=${limit}:paginado=${paginado}`;
+};
 
 export const listarProdutos = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -23,9 +32,12 @@ export const listarProdutos = async (req: Request, res: Response): Promise<void>
       queryOptions.offset = offset;
     }
 
-    const { rows: produtos, count } = await Produto.findAndCountAll(queryOptions);
+    const resposta = await cacheAside(chaveProdutos(req), TTL_PRODUTOS_SEGUNDOS, async () => {
+      const { rows: produtos, count } = await Produto.findAndCountAll(queryOptions);
+      return shouldPaginate ? buildPaginatedResponse(produtos, count, page, limit) : produtos;
+    });
 
-    res.status(200).json(shouldPaginate ? buildPaginatedResponse(produtos, count, page, limit) : produtos);
+    res.status(200).json(resposta);
   } catch (error) {
     console.error("Erro ao listar produtos:", error);
     res.status(500).json({ mensagem: "Erro interno ao listar produtos." });
@@ -71,6 +83,7 @@ export const criarProduto = async (req: Request, res: Response): Promise<void> =
       estoque: estoque || 0,
       ativo: true,
     });
+    await invalidarCachePorPrefixo("produtos:");
 
     res.status(201).json({
       mensagem: "Produto criado com sucesso.",
@@ -116,6 +129,7 @@ export const atualizarProduto = async (req: Request, res: Response): Promise<voi
     if (estoque !== undefined) dadosAtualizados.estoque = estoque;
 
     await produto.update(dadosAtualizados);
+    await invalidarCachePorPrefixo("produtos:");
 
     res.status(200).json({
       mensagem: "Produto atualizado com sucesso.",
@@ -143,6 +157,7 @@ export const desativarProduto = async (req: Request, res: Response): Promise<voi
     }
 
     await produto.update({ ativo: false });
+    await invalidarCachePorPrefixo("produtos:");
 
     res.status(200).json({
       mensagem: "Produto desativado com sucesso.",
@@ -185,9 +200,14 @@ export const buscarProdutosPorNome = async (req: Request, res: Response): Promis
       queryOptions.offset = offset;
     }
 
-    const { rows: produtos, count } = await Produto.findAndCountAll(queryOptions);
+    const resposta = await cacheAside(chaveProdutos(req, true), TTL_PRODUTOS_SEGUNDOS, async () => {
+      const { rows: produtos, count } = await Produto.findAndCountAll({
+        ...queryOptions,
+      });
+      return shouldPaginate ? buildPaginatedResponse(produtos, count, page, limit) : produtos;
+    });
 
-    res.status(200).json(shouldPaginate ? buildPaginatedResponse(produtos, count, page, limit) : produtos);
+    res.status(200).json(resposta);
   } catch (error) {
     console.error("Erro ao buscar produtos:", error);
     res.status(500).json({ mensagem: "Erro interno ao buscar produtos." });
