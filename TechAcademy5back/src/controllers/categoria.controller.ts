@@ -1,6 +1,9 @@
 import { Request, Response } from "express";
 import Categoria from "../models/Categoria";
 import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination";
+import { cacheAside, invalidarCachePorPrefixo } from "../utils/cache";
+
+const TTL_CATEGORIAS_SEGUNDOS = 30 * 60;
 
 export const criarCategoria = async (req: Request, res: Response) => {
   try {
@@ -11,6 +14,7 @@ export const criarCategoria = async (req: Request, res: Response) => {
       descricao,
       ativo
     });
+    await invalidarCachePorPrefixo("categorias:");
 
     return res.status(201).json(categoria);
   } catch (error) {
@@ -37,8 +41,13 @@ export const listarCategorias = async (_req: Request, res: Response) => {
       queryOptions.offset = offset;
     }
 
-    const { rows: categorias, count } = await Categoria.findAndCountAll(queryOptions);
-    return res.json(shouldPaginate ? buildPaginatedResponse(categorias, count, page, limit) : categorias);
+    const paginado = req.query.page !== undefined || req.query.limit !== undefined;
+    const chave = `categorias:lista:pagina=${page}:limite=${limit}:paginado=${paginado}`;
+    const resposta = await cacheAside(chave, TTL_CATEGORIAS_SEGUNDOS, async () => {
+      const { rows: categorias, count } = await Categoria.findAndCountAll(queryOptions);
+      return paginado ? buildPaginatedResponse(categorias, count, page, limit) : categorias;
+    });
+    return res.json(resposta);
   } catch (error) {
     console.error("Erro ao listar categorias:", error);
     return res.status(500).json({ erro: "Erro ao listar categorias" });
@@ -73,6 +82,7 @@ export const atualizarCategoria = async (req: Request, res: Response) => {
     }
 
     await categoria.update(req.body);
+    await invalidarCachePorPrefixo("categorias:");
 
     return res.json(categoria);
   } catch (error) {
@@ -92,6 +102,7 @@ export const deletarCategoria = async (req: Request, res: Response) => {
     }
 
     await categoria.destroy();
+    await invalidarCachePorPrefixo("categorias:");
 
     return res.json({ mensagem: "Categoria deletada com sucesso" });
   } catch (error) {
