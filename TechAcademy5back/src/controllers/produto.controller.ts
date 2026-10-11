@@ -3,17 +3,24 @@ import Produto from "../models/Produto";
 import { Op } from "sequelize";
 import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination";
 import { cacheAside, invalidarCachePorPrefixo } from "../utils/cache";
+import AppError from "../utils/app-error";
 
 const TTL_PRODUTOS_SEGUNDOS = 5 * 60;
 
-const chaveProdutos = (req: Request, destaque = false): string => {
+const chaveProdutos = (
+  req: Request,
+  tipo: "lista" | "destaque" | "busca" = "lista"
+): string => {
   const { page, limit } = getPaginationParams(req);
   const paginado = req.query.page !== undefined || req.query.limit !== undefined;
-  return `produtos:${destaque ? "destaque" : "lista"}:pagina=${page}:limite=${limit}:paginado=${paginado}`;
+  const termo = tipo === "busca"
+    ? `:termo=${encodeURIComponent(String(req.query.nome ?? "").trim())}`
+    : "";
+  return `produtos:${tipo}:pagina=${page}:limite=${limit}:paginado=${paginado}${termo}`;
 };
 
 export const listarProdutos = async (req: Request, res: Response): Promise<void> => {
-  try {
+  
     const { page, limit, offset } = getPaginationParams(req);
     const shouldPaginate = req.query.page !== undefined || req.query.limit !== undefined;
 
@@ -38,14 +45,11 @@ export const listarProdutos = async (req: Request, res: Response): Promise<void>
     });
 
     res.status(200).json(resposta);
-  } catch (error) {
-    console.error("Erro ao listar produtos:", error);
-    res.status(500).json({ mensagem: "Erro interno ao listar produtos." });
-  }
+  
 };
 
 export const buscarProdutoPorId = async (req: Request, res: Response): Promise<void> => {
-  try {
+  
     const id = Number(req.params.id);
 
     const produto = await Produto.findOne({
@@ -53,24 +57,21 @@ export const buscarProdutoPorId = async (req: Request, res: Response): Promise<v
     });
 
     if (!produto) {
-      res.status(404).json({ mensagem: "Produto não encontrado." });
-      return;
+      throw new AppError(404, "Produto não encontrado.", "NAO_ENCONTRADO");
+      
     }
 
     res.status(200).json(produto);
-  } catch (error) {
-    console.error("Erro ao buscar produto:", error);
-    res.status(500).json({ mensagem: "Erro interno ao buscar produto." });
-  }
+  
 };
 
 export const criarProduto = async (req: Request, res: Response): Promise<void> => {
-  try {
+  
     const { nome, descricao, valor, id_categoria, imagem, destaque, estoque } = req.body;
 
     if (!nome || !valor) {
-      res.status(400).json({ mensagem: "Nome e valor são obrigatórios." });
-      return;
+      throw new AppError(400, "Nome e valor são obrigatórios.", "REQUISICAO_INVALIDA");
+      
     }
 
     const novoProduto = await Produto.create({
@@ -89,14 +90,11 @@ export const criarProduto = async (req: Request, res: Response): Promise<void> =
       mensagem: "Produto criado com sucesso.",
       produto: novoProduto,
     });
-  } catch (error) {
-    console.error("Erro ao criar produto:", error);
-    res.status(500).json({ mensagem: "Erro interno ao criar produto." });
-  }
+  
 };
 
 export const atualizarProduto = async (req: Request, res: Response): Promise<void> => {
-  try {
+  
     const id = Number(req.params.id);
 
     const produto = await Produto.findOne({
@@ -104,8 +102,8 @@ export const atualizarProduto = async (req: Request, res: Response): Promise<voi
     });
 
     if (!produto) {
-      res.status(404).json({ mensagem: "Produto não encontrado." });
-      return;
+      throw new AppError(404, "Produto não encontrado.", "NAO_ENCONTRADO");
+      
     }
 
     const { nome, descricao, valor, id_categoria, imagem, destaque, estoque } = req.body;
@@ -135,14 +133,11 @@ export const atualizarProduto = async (req: Request, res: Response): Promise<voi
       mensagem: "Produto atualizado com sucesso.",
       produto,
     });
-  } catch (error) {
-    console.error("Erro ao atualizar produto:", error);
-    res.status(500).json({ mensagem: "Erro interno ao atualizar produto." });
-  }
+  
 };
 
 export const desativarProduto = async (req: Request, res: Response): Promise<void> => {
-  try {
+  
     const id = Number(req.params.id);
 
     const produto = await Produto.findOne({
@@ -150,10 +145,8 @@ export const desativarProduto = async (req: Request, res: Response): Promise<voi
     });
 
     if (!produto) {
-      res.status(404).json({
-        mensagem: "Produto não encontrado ou já desativado.",
-      });
-      return;
+      throw new AppError(404, "Produto não encontrado ou já desativado.", "NAO_ENCONTRADO");
+      
     }
 
     await produto.update({ ativo: false });
@@ -162,23 +155,18 @@ export const desativarProduto = async (req: Request, res: Response): Promise<voi
     res.status(200).json({
       mensagem: "Produto desativado com sucesso.",
     });
-  } catch (error) {
-    console.error("Erro ao desativar produto:", error);
-    res.status(500).json({
-      mensagem: "Erro interno ao desativar produto.",
-    });
-  }
+  
 };
 
 export const buscarProdutosPorNome = async (req: Request, res: Response): Promise<void> => {
-  try {
+  
     const nome = req.query.nome as string;
     const { page, limit, offset } = getPaginationParams(req);
     const shouldPaginate = req.query.page !== undefined || req.query.limit !== undefined;
 
     if (!nome) {
-      res.status(400).json({ mensagem: "Informe um nome para buscar." });
-      return;
+      throw new AppError(400, "Informe um nome para buscar.", "REQUISICAO_INVALIDA");
+      
     }
 
     const queryOptions: {
@@ -200,7 +188,7 @@ export const buscarProdutosPorNome = async (req: Request, res: Response): Promis
       queryOptions.offset = offset;
     }
 
-    const resposta = await cacheAside(chaveProdutos(req, true), TTL_PRODUTOS_SEGUNDOS, async () => {
+    const resposta = await cacheAside(chaveProdutos(req, "busca"), TTL_PRODUTOS_SEGUNDOS, async () => {
       const { rows: produtos, count } = await Produto.findAndCountAll({
         ...queryOptions,
       });
@@ -208,14 +196,11 @@ export const buscarProdutosPorNome = async (req: Request, res: Response): Promis
     });
 
     res.status(200).json(resposta);
-  } catch (error) {
-    console.error("Erro ao buscar produtos:", error);
-    res.status(500).json({ mensagem: "Erro interno ao buscar produtos." });
-  }
+  
 };
 
 export const listarProdutosDestaque = async (req: Request, res: Response): Promise<void> => {
-  try {
+  
     const { page, limit, offset } = getPaginationParams(req);
     const shouldPaginate = req.query.page !== undefined || req.query.limit !== undefined;
 
@@ -232,13 +217,11 @@ export const listarProdutosDestaque = async (req: Request, res: Response): Promi
       queryOptions.offset = offset;
     }
 
-    const { rows: produtos, count } = await Produto.findAndCountAll(queryOptions);
-
-    res.status(200).json(shouldPaginate ? buildPaginatedResponse(produtos, count, page, limit) : produtos);
-  } catch (error) {
-    console.error("Erro ao listar produtos destaque:", error);
-    res.status(500).json({
-      mensagem: "Erro interno ao listar produtos destaque.",
+    const resposta = await cacheAside(chaveProdutos(req, "destaque"), TTL_PRODUTOS_SEGUNDOS, async () => {
+      const { rows: produtos, count } = await Produto.findAndCountAll(queryOptions);
+      return shouldPaginate ? buildPaginatedResponse(produtos, count, page, limit) : produtos;
     });
-  }
+
+    res.status(200).json(resposta);
+  
 };
