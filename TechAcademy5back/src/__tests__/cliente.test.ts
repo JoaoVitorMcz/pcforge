@@ -90,6 +90,7 @@ describe("cliente.controller", () => {
     expect(res.json).toHaveBeenCalledWith(
       expect.objectContaining({ token: "token_fake" })
     );
+    expect((res.json as jest.Mock).mock.calls[0][0].cliente).not.toHaveProperty("senha");
   });
 
   it("2. Rota protegida com token valido chama next()", () => {
@@ -133,12 +134,11 @@ describe("cliente.controller", () => {
     const req = mockRequest({ nome: "Joao" });
     const res = mockResponse();
 
-    await criarCliente(req as Request, res as Response);
-
-    expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith({
-      mensagem: "Nome, email, senha e CPF sao obrigatorios.",
+    await expect(criarCliente(req as Request, res as Response)).rejects.toMatchObject({
+      statusCode: 400,
+      codigo: "REQUISICAO_INVALIDA",
     });
+    expect(res.status).not.toHaveBeenCalled();
   });
 
   it("5. Nao permite email invalido", async () => {
@@ -150,12 +150,11 @@ describe("cliente.controller", () => {
     });
     const res = mockResponse();
 
-    await criarCliente(req as Request, res as Response);
-
-    expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith({
-      mensagem: "E-mail invalido.",
+    await expect(criarCliente(req as Request, res as Response)).rejects.toMatchObject({
+      statusCode: 400,
+      codigo: "REQUISICAO_INVALIDA",
     });
+    expect(res.status).not.toHaveBeenCalled();
   });
 
   it("6. Senha e armazenada criptografada", async () => {
@@ -199,14 +198,24 @@ describe("cliente.controller", () => {
     const req = mockRequest({}, { id: "999" });
     const res = mockResponse();
 
-    await buscarClientePorId(req as Request, res as Response);
-
-    expect(res.status).toHaveBeenCalledWith(404);
+    await expect(buscarClientePorId(req as Request, res as Response)).rejects.toMatchObject({
+      statusCode: 404,
+      codigo: "NAO_ENCONTRADO",
+    });
+    expect(res.status).not.toHaveBeenCalled();
   });
 
   it("8. Lista clientes com paginacao", async () => {
     (Cliente.findAndCountAll as jest.Mock).mockResolvedValue({
-      rows: [{ id_cliente: 1, nome: "Joao" }],
+      rows: [{
+        id_cliente: 1,
+        nome: "Joao",
+        email: "joao@email.com",
+        telefone: null,
+        cpf: "12345678901",
+        ativo: true,
+        admin: false,
+      }],
       count: 1,
     });
 
@@ -217,7 +226,15 @@ describe("cliente.controller", () => {
 
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
-      dados: [{ id_cliente: 1, nome: "Joao" }],
+      dados: [{
+        id_cliente: 1,
+        nome: "Joao",
+        email: "joao@email.com",
+        telefone: null,
+        cpf: "12345678901",
+        ativo: true,
+        admin: false,
+      }],
       paginacao: {
         paginaAtual: 1,
         porPagina: 10,
@@ -253,6 +270,7 @@ describe("cliente.controller", () => {
     expect(ClienteRole.findOrCreate).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id_cliente: 42, id_role: 2 } })
     );
+    expect((res.json as jest.Mock).mock.calls[0][0].cliente).not.toHaveProperty("senha");
   });
 
   it("10. Cadastro nao falha quando o papel ainda nao existe no banco", async () => {

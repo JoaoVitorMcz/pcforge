@@ -34,6 +34,31 @@ export interface ClienteAtualizacaoDTO {
   ativo?: boolean;
 }
 
+export interface ClienteRespostaDTO {
+  id_cliente: number;
+  nome: string;
+  email: string;
+  telefone: string | null;
+  cpf: string | null;
+  ativo: boolean;
+  admin: boolean;
+}
+
+type ClienteRespostaOrigem = Omit<ClienteRespostaDTO, "telefone" | "cpf"> &
+  Partial<Pick<ClienteRespostaDTO, "telefone" | "cpf">>;
+
+export const mapearClienteResposta = (
+  cliente: ClienteRespostaOrigem
+): ClienteRespostaDTO => ({
+  id_cliente: cliente.id_cliente,
+  nome: cliente.nome,
+  email: cliente.email,
+  telefone: cliente.telefone ?? null,
+  cpf: cliente.cpf ?? null,
+  ativo: cliente.ativo,
+  admin: cliente.admin,
+});
+
 export interface PedidoCriacaoDTO {
   id_endereco_entrega: number;
   itens: Array<{ id_produto: number; quantidade: number }>;

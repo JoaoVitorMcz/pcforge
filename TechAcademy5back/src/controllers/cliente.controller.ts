@@ -8,6 +8,8 @@ import Permissao from "../models/Permissao";
 import ClienteRole from "../models/ClienteRole";
 import { getJwtSecret } from "../config/jwt";
 import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination";
+import { mapearClienteResposta } from "../utils/dto";
+import AppError from "../utils/app-error";
 import {
   isStrongPassword,
   isValidCpf,
@@ -16,7 +18,7 @@ import {
 } from "../utils/cliente.validation";
 
 export const listarClientes = async (req: Request, res: Response): Promise<void> => {
-  try {
+  
     const { page, limit, offset } = getPaginationParams(req);
     const shouldPaginate = req.query.page !== undefined || req.query.limit !== undefined;
     const incluirInativos = req.query.incluir_inativos === "true" || req.query.all === "true";
@@ -40,15 +42,13 @@ export const listarClientes = async (req: Request, res: Response): Promise<void>
 
     const { rows: clientes, count } = await Cliente.findAndCountAll(queryOptions);
 
-    res.status(200).json(shouldPaginate ? buildPaginatedResponse(clientes, count, page, limit) : clientes);
-  } catch (error) {
-    console.error("Erro ao listar clientes:", error);
-    res.status(500).json({ mensagem: "Erro interno ao listar clientes." });
-  }
+    const clientesPublicos = clientes.map((cliente) => mapearClienteResposta(cliente));
+    res.status(200).json(shouldPaginate ? buildPaginatedResponse(clientesPublicos, count, page, limit) : clientesPublicos);
+  
 };
 
 export const buscarClientePorId = async (req: Request, res: Response): Promise<void> => {
-  try {
+  
     const { id } = req.params;
 
     const cliente = await Cliente.findOne({
@@ -57,15 +57,12 @@ export const buscarClientePorId = async (req: Request, res: Response): Promise<v
     });
 
     if (!cliente) {
-      res.status(404).json({ mensagem: "Cliente nao encontrado." });
-      return;
+      throw new AppError(404, "Cliente nao encontrado.", "NAO_ENCONTRADO");
+      
     }
 
-    res.status(200).json(cliente);
-  } catch (error) {
-    console.error("Erro ao buscar cliente:", error);
-    res.status(500).json({ mensagem: "Erro interno ao buscar cliente." });
-  }
+    res.status(200).json(mapearClienteResposta(cliente));
+  
 };
 
 /**
@@ -79,7 +76,7 @@ export const buscarClientePorId = async (req: Request, res: Response): Promise<v
  * cliente continua valido e o fallback pelo boolean admin cobre o acesso.
  */
 const vincularPapelPadrao = async (idCliente: number, ehAdmin: boolean): Promise<void> => {
-  try {
+  
     const role = await Role.findOne({ where: { nome: ehAdmin ? "admin" : "cliente" } });
 
     if (!role) {
@@ -90,51 +87,47 @@ const vincularPapelPadrao = async (idCliente: number, ehAdmin: boolean): Promise
       where: { id_cliente: idCliente, id_role: role.id_role },
       defaults: { id_cliente: idCliente, id_role: role.id_role },
     });
-  } catch (error) {
-    console.error("Falha ao vincular o papel padrao ao cliente:", error);
-  }
+  
 };
 
 export const criarCliente = async (req: Request, res: Response): Promise<void> => {
-  try {
+  
     const { nome, email, senha, telefone, cpf, admin } = req.body;
     const clienteLogado = req.cliente;
 
     if (!nome || !email || !senha || !cpf) {
-      res.status(400).json({ mensagem: "Nome, email, senha e CPF sao obrigatorios." });
-      return;
+      throw new AppError(400, "Nome, email, senha e CPF sao obrigatorios.", "REQUISICAO_INVALIDA");
+      
     }
 
     if (!isValidEmail(email)) {
-      res.status(400).json({ mensagem: "E-mail invalido." });
-      return;
+      throw new AppError(400, "E-mail invalido.", "REQUISICAO_INVALIDA");
+      
     }
 
     if (!isValidCpf(cpf)) {
-      res.status(400).json({ mensagem: "CPF invalido." });
-      return;
+      throw new AppError(400, "CPF invalido.", "REQUISICAO_INVALIDA");
+      
     }
 
     if (!isStrongPassword(senha)) {
-      res.status(400).json({
-        mensagem: "A senha deve ter no minimo 8 caracteres, incluindo letra maiuscula, minuscula e numero.",
-      });
-      return;
+      throw new AppError(400, "A senha deve ter no minimo 8 caracteres, incluindo letra maiuscula, minuscula e numero.", "REQUISICAO_INVALIDA");
+      
     }
 
     const clienteExistente = await Cliente.findOne({ where: { email } });
 
     if (clienteExistente) {
-      res.status(409).json({ mensagem: "E-mail ja cadastrado." });
-      return;
+      throw new AppError(409, "E-mail ja cadastrado.", "CONFLITO");
+      
     }
 
     const cpfSanitizado = sanitizeCpf(cpf);
     const cpfEmUso = await Cliente.findOne({ where: { cpf: cpfSanitizado } });
 
     if (cpfEmUso) {
-      res.status(409).json({ mensagem: "CPF ja cadastrado." });
-      return;
+      throw new AppError(409, "CPF ja cadastrado.", "CONFLITO");
+      
     }
 
     const senhaCriptografada = await bcrypt.hash(senha, 10);
@@ -154,29 +147,27 @@ export const criarCliente = async (req: Request, res: Response): Promise<void> =
 
     await vincularPapelPadrao(novoCliente.id_cliente, isAdmin);
 
-    const { senha: _senha, ...clienteSemSenha } = novoCliente.toJSON();
-
-    res.status(201).json({ mensagem: "Cliente criado com sucesso.", cliente: clienteSemSenha });
-  } catch (error) {
-    console.error("Erro ao criar cliente:", error);
-    res.status(500).json({ mensagem: "Erro interno ao criar cliente." });
-  }
+    res.status(201).json({
+      mensagem: "Cliente criado com sucesso.",
+      cliente: mapearClienteResposta(novoCliente.toJSON()),
+    });
+  
 };
 
 export const atualizarCliente = async (req: Request, res: Response): Promise<void> => {
-  try {
+  
     const { id } = req.params;
     const { nome, email, telefone, cpf, senha, admin, ativo } = req.body;
     const clienteLogado = req.cliente;
 
     if (!clienteLogado) {
-      res.status(401).json({ mensagem: "Usuario nao autenticado." });
-      return;
+      throw new AppError(401, "Usuario nao autenticado.", "NAO_AUTENTICADO");
+      
     }
 
     if (clienteLogado.id_cliente !== Number(id) && !clienteLogado.admin) {
-      res.status(403).json({ mensagem: "Voce nao tem permissao para editar este cliente." });
-      return;
+      throw new AppError(403, "Voce nao tem permissao para editar este cliente.", "ACESSO_NEGADO");
+      
     }
 
    
@@ -187,26 +178,24 @@ export const atualizarCliente = async (req: Request, res: Response): Promise<voi
     const cliente = await Cliente.findOne({ where: whereClause });
 
     if (!cliente) {
-      res.status(404).json({ mensagem: "Cliente nao encontrado." });
-      return;
+      throw new AppError(404, "Cliente nao encontrado.", "NAO_ENCONTRADO");
+      
     }
 
 if (!nome || !telefone || !cpf) {
-  res.status(400).json({
-    mensagem: "Nome, telefone e CPF sao obrigatorios para editar o perfil.",
-  });
-  return;
+  throw new AppError(400, "Nome, telefone e CPF sao obrigatorios para editar o perfil.", "REQUISICAO_INVALIDA");
+  
 }
 
     if (email && email !== cliente.email) {
-      res.status(400).json({ mensagem: "Nao e permitido alterar o e-mail." });
-      return;
+      throw new AppError(400, "Nao e permitido alterar o e-mail.", "REQUISICAO_INVALIDA");
+      
     }
 
     if (cpf && cpf !== cliente.cpf) {
       if (!isValidCpf(cpf)) {
-        res.status(400).json({ mensagem: "CPF invalido." });
-        return;
+        throw new AppError(400, "CPF invalido.", "REQUISICAO_INVALIDA");
+        
       }
 
       const cpfSanitizado = sanitizeCpf(cpf);
@@ -215,8 +204,8 @@ if (!nome || !telefone || !cpf) {
       });
 
       if (cpfEmUso) {
-        res.status(409).json({ mensagem: "CPF ja esta em uso por outro cliente." });
-        return;
+        throw new AppError(409, "CPF ja esta em uso por outro cliente.", "CONFLITO");
+        
       }
     }
 
@@ -235,10 +224,8 @@ if (!nome || !telefone || !cpf) {
 
     if (senha) {
       if (!isStrongPassword(senha)) {
-        res.status(400).json({
-          mensagem: "A senha deve ter no minimo 8 caracteres, incluindo letra maiuscula, minuscula e numero.",
-        });
-        return;
+        throw new AppError(400, "A senha deve ter no minimo 8 caracteres, incluindo letra maiuscula, minuscula e numero.", "REQUISICAO_INVALIDA");
+        
       }
       dadosAtualizados.senha = await bcrypt.hash(senha, 10);
     }
@@ -251,44 +238,39 @@ if (!nome || !telefone || !cpf) {
 
     await cliente.update(dadosAtualizados);
 
-    const { senha: _senha, ...clienteSemSenha } = cliente.toJSON();
-
-    res.status(200).json({ mensagem: "Cliente atualizado com sucesso.", cliente: clienteSemSenha });
-  } catch (error) {
-    console.error("Erro ao atualizar cliente:", error);
-    res.status(500).json({ mensagem: "Erro interno ao atualizar cliente." });
-  }
+    res.status(200).json({
+      mensagem: "Cliente atualizado com sucesso.",
+      cliente: mapearClienteResposta(cliente.toJSON()),
+    });
+  
 };
 
 export const desativarCliente = async (req: Request, res: Response): Promise<void> => {
-  try {
+  
     const { id } = req.params;
     const clienteLogado = req.cliente;
 
     if (!clienteLogado) {
-      res.status(401).json({ mensagem: "Usuario nao autenticado." });
-      return;
+      throw new AppError(401, "Usuario nao autenticado.", "NAO_AUTENTICADO");
+      
     }
 
     if (clienteLogado.id_cliente !== Number(id) && !clienteLogado.admin) {
-      res.status(403).json({ mensagem: "Voce nao tem permissao para desativar este cliente." });
-      return;
+      throw new AppError(403, "Voce nao tem permissao para desativar este cliente.", "ACESSO_NEGADO");
+      
     }
 
     const cliente = await Cliente.findOne({ where: { id_cliente: id, ativo: true } });
 
     if (!cliente) {
-      res.status(404).json({ mensagem: "Cliente nao encontrado ou ja inativo." });
-      return;
+      throw new AppError(404, "Cliente nao encontrado ou ja inativo.", "NAO_ENCONTRADO");
+      
     }
 
     await cliente.update({ ativo: false });
 
     res.status(200).json({ mensagem: "Cliente desativado com sucesso." });
-  } catch (error) {
-    console.error("Erro ao desativar cliente:", error);
-    res.status(500).json({ mensagem: "Erro interno ao desativar cliente." });
-  }
+  
 };
 
 type RoleComPermissoes = Role & { permissoes?: Permissao[] };
@@ -317,12 +299,12 @@ const extrairRbac = (cliente: Cliente): { roles: string[]; permissoes: string[] 
 };
 
 export const loginCliente = async (req: Request, res: Response): Promise<void> => {
-  try {
+  
     const { email, senha } = req.body;
 
     if (!email || !senha) {
-      res.status(400).json({ mensagem: "E-mail e senha sao obrigatorios." });
-      return;
+      throw new AppError(400, "E-mail e senha sao obrigatorios.", "REQUISICAO_INVALIDA");
+      
     }
 
     const cliente = await Cliente.findOne({
@@ -338,18 +320,16 @@ export const loginCliente = async (req: Request, res: Response): Promise<void> =
     });
 
     if (!cliente) {
-      res.status(401).json({ mensagem: "Credenciais invalidas." });
-      return;
+      throw new AppError(401, "Credenciais invalidas.", "NAO_AUTENTICADO");
+      
     }
 
     const senhaCorreta = await bcrypt.compare(senha, cliente.senha);
 
     if (!senhaCorreta) {
-      res.status(401).json({ mensagem: "Credenciais invalidas." });
-      return;
+      throw new AppError(401, "Credenciais invalidas.", "NAO_AUTENTICADO");
+      
     }
-
-    const { senha: _senha, ...clienteSemSenha } = cliente.toJSON();
 
     const { roles, permissoes } = extrairRbac(cliente);
     // Enquanto o boolean e o RBAC coexistem, qualquer um dos dois faz um admin.
@@ -370,9 +350,10 @@ export const loginCliente = async (req: Request, res: Response): Promise<void> =
       { expiresIn: "1d" }
     );
 
-    res.status(200).json({ mensagem: "Login realizado com sucesso.", token, cliente: clienteSemSenha });
-  } catch (error) {
-    console.error("Erro no login:", error);
-    res.status(500).json({ mensagem: "Erro interno no login." });
-  }
+    res.status(200).json({
+      mensagem: "Login realizado com sucesso.",
+      token,
+      cliente: mapearClienteResposta(cliente.toJSON()),
+    });
+  
 };
