@@ -43,7 +43,7 @@ function Login() {
       recarregarCarrinho();   // ← carrega carrinho do cliente
       navigate("/");
     } catch (err) {
-      if (err.message.includes("401")) {
+      if (err.status === 401) {
         setErroGeral("Email ou senha incorretos.");
       } else {
         setErroGeral("Erro ao conectar com o servidor.");

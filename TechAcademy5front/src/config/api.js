@@ -51,6 +51,12 @@ async function mensagemErro(response) {
   }
 }
 
+async function criarErroHttp(response) {
+  const erro = new Error(await mensagemErro(response));
+  erro.status = response.status;
+  return erro;
+}
+
 function normalizeProduct(product) {
   const rawPrice = product.preco ?? product.valor ?? 0;
   const numericPrice =
@@ -76,7 +82,7 @@ export async function fetchJson(path) {
   });
 
   if (!response.ok) {
-    throw new Error(await mensagemErro(response));
+    throw await criarErroHttp(response);
   }
 
   const data = await response.json();
@@ -101,7 +107,7 @@ export async function sendJson(path, method, body) {
   });
 
   if (!response.ok) {
-    throw new Error(await mensagemErro(response));
+    throw await criarErroHttp(response);
   }
 
   const contentType = response.headers.get("content-type") || "";
@@ -130,7 +136,7 @@ export async function sendFormData(path, method, body) {
   });
 
   if (!response.ok) {
-    throw new Error(await mensagemErro(response));
+    throw await criarErroHttp(response);
   }
 
   const contentType = response.headers.get("content-type") || "";
