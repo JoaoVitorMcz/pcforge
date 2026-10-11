@@ -4,14 +4,12 @@ import ItemPedido from "../models/Itempedido";
 import Produto from "../models/Produto";
 import Cliente from "../models/Cliente";
 import Endereco from "../models/Endereco";
+import AppError from "../utils/app-error";
 
-export class HttpError extends Error {
-  statusCode: number;
-
+export class HttpError extends AppError {
   constructor(statusCode: number, message: string) {
-    super(message);
+    super(statusCode, message, "PEDIDO_INVALIDO");
     this.name = "HttpError";
-    this.statusCode = statusCode;
   }
 }
 

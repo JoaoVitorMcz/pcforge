@@ -91,9 +91,11 @@ describe("endereco.controller", () => {
     const req = mockRequest({}, { id: "1" }, {}, { id_cliente: 1, admin: false, email: "teste@teste.com" });
     const res = mockResponse();
 
-    await buscarEnderecoPorId(req as Request, res as Response);
-
-    expect(res.status).toHaveBeenCalledWith(403);
+    await expect(buscarEnderecoPorId(req as Request, res as Response)).rejects.toMatchObject({
+      statusCode: 403,
+      codigo: "ACESSO_NEGADO",
+    });
+    expect(res.status).not.toHaveBeenCalled();
   });
 
   it("5. cria endereco com sucesso para o proprio cliente", async () => {

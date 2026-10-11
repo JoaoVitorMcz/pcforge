@@ -2,11 +2,11 @@ import { Request, Response } from "express";
 import Endereco from "../models/Endereco";
 import Cliente from "../models/Cliente";
 import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination";
+import AppError from "../utils/app-error";
 
-const getClienteAutenticado = (req: Request, res: Response) => {
+const getClienteAutenticado = (req: Request) => {
   if (!req.cliente) {
-    res.status(401).json({ mensagem: "Usuario nao autenticado." });
-    return null;
+    throw new AppError(401, "Usuario nao autenticado.", "NAO_AUTENTICADO");
   }
 
   return req.cliente;
@@ -15,7 +15,7 @@ const getClienteAutenticado = (req: Request, res: Response) => {
 
 
 export const listarEnderecos = async (req: Request, res: Response): Promise<void> => {
-  try {
+
     const { page, limit, offset } = getPaginationParams(req);
     const shouldPaginate = req.query.page !== undefined || req.query.limit !== undefined;
     const baseOptions = {
@@ -41,16 +41,13 @@ export const listarEnderecos = async (req: Request, res: Response): Promise<void
     res
       .status(200)
       .json(shouldPaginate ? buildPaginatedResponse(enderecos, count, page, limit) : enderecos);
-  } catch (error) {
-    console.error("Erro ao listar enderecos:", error);
-    res.status(500).json({ mensagem: "Erro interno ao listar enderecos." });
-  }
+
 };
 
 
 
 export const listarEnderecosPorCliente = async (req: Request, res: Response): Promise<void> => {
-  try {
+
     const id_cliente = Number(req.params.id_cliente);
     const { page, limit, offset } = getPaginationParams(req);
     const shouldPaginate = req.query.page !== undefined || req.query.limit !== undefined;
@@ -70,17 +67,14 @@ export const listarEnderecosPorCliente = async (req: Request, res: Response): Pr
     res
       .status(200)
       .json(shouldPaginate ? buildPaginatedResponse(enderecos, count, page, limit) : enderecos);
-  } catch (error) {
-    console.error("Erro ao listar enderecos do cliente:", error);
-    res.status(500).json({ mensagem: "Erro interno ao listar enderecos do cliente." });
-  }
+
 };
 
 
 export const buscarEnderecoPorId = async (req: Request, res: Response): Promise<void> => {
-  try {
+
     const id_endereco = Number(req.params.id);
-    const clienteLogado = getClienteAutenticado(req, res);
+    const clienteLogado = getClienteAutenticado(req);
 
     if (!clienteLogado) {
       return;
@@ -97,26 +91,23 @@ export const buscarEnderecoPorId = async (req: Request, res: Response): Promise<
     });
 
     if (!endereco) {
-      res.status(404).json({ mensagem: "Endereco nao encontrado." });
-      return;
+      throw new AppError(404, "Endereco nao encontrado.", "NAO_ENCONTRADO");
+
     }
 
     if (!clienteLogado.admin && endereco.id_cliente !== clienteLogado.id_cliente) {
-      res.status(403).json({ mensagem: "Voce nao tem permissao para acessar este endereco." });
-      return;
+      throw new AppError(403, "Voce nao tem permissao para acessar este endereco.", "ACESSO_NEGADO");
+
     }
 
     res.status(200).json(endereco);
-  } catch (error) {
-    console.error("Erro ao buscar endereco:", error);
-    res.status(500).json({ mensagem: "Erro interno ao buscar endereco." });
-  }
+
 };
 
 
 export const criarEndereco = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const clienteLogado = getClienteAutenticado(req, res);
+
+    const clienteLogado = getClienteAutenticado(req);
 
     if (!clienteLogado) {
       return;
@@ -127,20 +118,20 @@ export const criarEndereco = async (req: Request, res: Response): Promise<void> 
     const idCliente = clienteLogado.admin ? idClienteBody : clienteLogado.id_cliente;
 
     if (!idCliente) {
-      res.status(400).json({ mensagem: "O id_cliente e obrigatorio." });
-      return;
+      throw new AppError(400, "O id_cliente e obrigatorio.", "REQUISICAO_INVALIDA");
+
     }
 
     if (!clienteLogado.admin && idClienteBody !== undefined && idClienteBody !== clienteLogado.id_cliente) {
-      res.status(403).json({ mensagem: "Voce nao pode criar endereco para outro cliente." });
-      return;
+      throw new AppError(403, "Voce nao pode criar endereco para outro cliente.", "ACESSO_NEGADO");
+
     }
 
     const cliente = await Cliente.findByPk(idCliente);
 
     if (!cliente) {
-      res.status(404).json({ mensagem: "Cliente nao encontrado." });
-      return;
+      throw new AppError(404, "Cliente nao encontrado.", "NAO_ENCONTRADO");
+
     }
 
     const novoEndereco = await Endereco.create({
@@ -157,17 +148,14 @@ export const criarEndereco = async (req: Request, res: Response): Promise<void> 
       mensagem: "Endereco criado com sucesso.",
       endereco: novoEndereco,
     });
-  } catch (error) {
-    console.error("Erro ao criar endereco:", error);
-    res.status(500).json({ mensagem: "Erro interno ao criar endereco." });
-  }
+
 };
 
 
 export const atualizarEndereco = async (req: Request, res: Response): Promise<void> => {
-  try {
+
     const id_endereco = Number(req.params.id);
-    const clienteLogado = getClienteAutenticado(req, res);
+    const clienteLogado = getClienteAutenticado(req);
 
     if (!clienteLogado) {
       return;
@@ -176,13 +164,13 @@ export const atualizarEndereco = async (req: Request, res: Response): Promise<vo
     const endereco = await Endereco.findByPk(id_endereco);
 
     if (!endereco) {
-      res.status(404).json({ mensagem: "Endereco nao encontrado." });
-      return;
+      throw new AppError(404, "Endereco nao encontrado.", "NAO_ENCONTRADO");
+
     }
 
     if (!clienteLogado.admin && endereco.id_cliente !== clienteLogado.id_cliente) {
-      res.status(403).json({ mensagem: "Voce nao tem permissao para atualizar este endereco." });
-      return;
+      throw new AppError(403, "Voce nao tem permissao para atualizar este endereco.", "ACESSO_NEGADO");
+
     }
 
     const { numero, complemento, bairro, cidade, estado, cep } = req.body;
@@ -200,17 +188,14 @@ export const atualizarEndereco = async (req: Request, res: Response): Promise<vo
       mensagem: "Endereco atualizado com sucesso.",
       endereco,
     });
-  } catch (error) {
-    console.error("Erro ao atualizar endereco:", error);
-    res.status(500).json({ mensagem: "Erro interno ao atualizar endereco." });
-  }
+
 };
 
 
 export const deletarEndereco = async (req: Request, res: Response): Promise<void> => {
-  try {
+
     const id_endereco = Number(req.params.id);
-    const clienteLogado = getClienteAutenticado(req, res);
+    const clienteLogado = getClienteAutenticado(req);
 
     if (!clienteLogado) {
       return;
@@ -219,20 +204,17 @@ export const deletarEndereco = async (req: Request, res: Response): Promise<void
     const endereco = await Endereco.findByPk(id_endereco);
 
     if (!endereco) {
-      res.status(404).json({ mensagem: "Endereco nao encontrado." });
-      return;
+      throw new AppError(404, "Endereco nao encontrado.", "NAO_ENCONTRADO");
+
     }
 
     if (!clienteLogado.admin && endereco.id_cliente !== clienteLogado.id_cliente) {
-      res.status(403).json({ mensagem: "Voce nao tem permissao para deletar este endereco." });
-      return;
+      throw new AppError(403, "Voce nao tem permissao para deletar este endereco.", "ACESSO_NEGADO");
+
     }
 
     await endereco.destroy();
 
     res.status(200).json({ mensagem: "Endereco deletado com sucesso." });
-  } catch (error) {
-    console.error("Erro ao deletar endereco:", error);
-    res.status(500).json({ mensagem: "Erro interno ao deletar endereco." });
-  }
+
 };

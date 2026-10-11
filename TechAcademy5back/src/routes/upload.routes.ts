@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { upload } from "../config/upload";
 import { authMiddleware, authorizeRole } from "../config/auth.middleware";
+import AppError from "../utils/app-error";
 
 const router = Router();
 
@@ -11,8 +12,7 @@ router.post(
   upload.single("imagem"),
   (req: Request, res: Response) => {
     if (!req.file) {
-      res.status(400).json({ mensagem: "Nenhuma imagem enviada." });
-      return;
+      throw new AppError(400, "Nenhuma imagem enviada.", "UPLOAD_INVALIDO");
     }
 
     const url = `/uploads/${req.file.filename}`;

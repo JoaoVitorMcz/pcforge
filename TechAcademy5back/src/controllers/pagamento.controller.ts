@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import Pedido from "../models/Pedido";
+import AppError from "../utils/app-error";
 import {
   HttpError,
   carregarPedidoDetalhadoDoCliente,
@@ -20,25 +21,11 @@ function getAuthenticatedClienteId(req: Request) {
   return idCliente;
 }
 
-function handleControllerError(
-  res: Response,
-  error: unknown,
-  fallbackMessage: string
-) {
-  if (error instanceof HttpError) {
-    res.status(error.statusCode).json({ mensagem: error.message });
-    return;
-  }
-
-  console.error(fallbackMessage, error);
-  res.status(500).json({ mensagem: fallbackMessage });
-}
-
 export const iniciarCheckoutMercadoPago = async (
   req: Request,
   res: Response
 ): Promise<void> => {
-  try {
+
     const idCliente = getAuthenticatedClienteId(req);
     const isAdmin = req.cliente?.admin === true;
     const { id_endereco_entrega, itens, frontend_url } = req.body;
@@ -64,42 +51,34 @@ export const iniciarCheckoutMercadoPago = async (
       pedido,
       ...preferenciaPayload,
     });
-  } catch (error) {
-    handleControllerError(
-      res,
-      error,
-      "Erro interno ao iniciar checkout com Mercado Pago."
-    );
-  }
+
 };
 
 export const gerarNovaPreferenciaMercadoPago = async (
   req: Request,
   res: Response
 ): Promise<void> => {
-  try {
+
     const idCliente = getAuthenticatedClienteId(req);
     const isAdmin = req.cliente?.admin === true;
     const idPedido = Number(req.params.id);
     const { frontend_url } = req.body;
 
     if (!Number.isInteger(idPedido) || idPedido < 1) {
-      res.status(400).json({ mensagem: "ID do pedido invalido." });
-      return;
+      throw new AppError(400, "ID do pedido invalido.", "REQUISICAO_INVALIDA");
+
     }
 
     const pedido = await carregarPedidoDetalhadoDoCliente(idPedido, idCliente, isAdmin);
 
     if (pedido.status === "pago") {
-      res.status(409).json({ mensagem: "Este pedido ja foi pago." });
-      return;
+      throw new AppError(409, "Este pedido ja foi pago.", "CONFLITO");
+
     }
 
     if (pedido.status === "cancelado" || pedido.status === "entregue") {
-      res.status(409).json({
-        mensagem: `Nao e possivel gerar pagamento para um pedido com status "${pedido.status}".`,
-      });
-      return;
+      throw new AppError(409, `Nao e possivel gerar pagamento para um pedido com status "${pedido.status}".`, "CONFLITO");
+
     }
 
     const preferencia = await criarPreferenciaMercadoPago(pedido, frontend_url);
@@ -113,20 +92,14 @@ export const gerarNovaPreferenciaMercadoPago = async (
       pedido,
       ...preferenciaPayload,
     });
-  } catch (error) {
-    handleControllerError(
-      res,
-      error,
-      "Erro interno ao gerar um novo link do Mercado Pago."
-    );
-  }
+
 };
 
 export const confirmarPagamentoMercadoPago = async (
   req: Request,
   res: Response
 ): Promise<void> => {
-  try {
+
     const idCliente = getAuthenticatedClienteId(req);
     const isAdmin = req.cliente?.admin === true;
     const idPedido = Number(req.body.pedido_id);
@@ -139,13 +112,13 @@ export const confirmarPagamentoMercadoPago = async (
     const fallbackStatus = String(req.body.status || "").trim().toLowerCase();
 
     if (!Number.isInteger(idPedido) || idPedido < 1) {
-      res.status(400).json({ mensagem: "pedido_id invalido." });
-      return;
+      throw new AppError(400, "pedido_id invalido.", "REQUISICAO_INVALIDA");
+
     }
 
     if (paymentId !== null && (!Number.isInteger(paymentId) || paymentId < 1)) {
-      res.status(400).json({ mensagem: "payment_id invalido." });
-      return;
+      throw new AppError(400, "payment_id invalido.", "REQUISICAO_INVALIDA");
+
     }
 
     const pedido = await carregarPedidoDetalhadoDoCliente(idPedido, idCliente, isAdmin);
@@ -180,10 +153,8 @@ export const confirmarPagamentoMercadoPago = async (
           : "";
 
       if (externalReference && externalReference !== String(pedido.id_pedido)) {
-        res.status(409).json({
-          mensagem: "O pagamento retornado nao pertence ao pedido informado.",
-        });
-        return;
+        throw new AppError(409, "O pagamento retornado nao pertence ao pedido informado.", "CONFLITO");
+
       }
     }
 
@@ -206,11 +177,5 @@ export const confirmarPagamentoMercadoPago = async (
       verifiedWithMercadoPago: Boolean(paymentDetails),
       pedido: pedidoAtualizado,
     });
-  } catch (error) {
-    handleControllerError(
-      res,
-      error,
-      "Erro interno ao confirmar pagamento com Mercado Pago."
-    );
-  }
+
 };

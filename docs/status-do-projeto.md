@@ -12,21 +12,17 @@ decisões foram tomadas assim.
 ### Back-end avançado — Sprint 1 em andamento
 
 O trabalho segue as issues atribuídas a Henrique Hoffmann no Jira, agrupadas por sprint.
-Esta primeira etapa já implementa o serviço Redis no Compose (sem porta publicada),
-conexão tolerante a falhas, cache-aside para listagens de produtos/destaques e
-categorias, TTLs e invalidação após CRUD. O [ADR-001](adr/001-redis-cache-e-eventos.md)
-registra cliente, alternativas e os TTLs de 5 minutos para produtos e 30 minutos para
-categorias.
+Esta etapa implementa Redis no Compose (sem porta publicada), conexão tolerante a falhas,
+cache-aside para listagens, destaques e buscas de produtos, além de categorias, com TTLs,
+log de hit/miss e invalidação após CRUD. O [ADR-001](adr/001-redis-cache-e-eventos.md)
+registra as alternativas e os TTLs de 5 minutos para produtos e 30 minutos para categorias.
 
-Também foi adicionada validação por DTO de entrada para criação/edição de produtos,
-clientes e criação de pedidos, além de middleware de erro com resposta
-`{ erro: { codigo, mensagem } }`. A migração dos controllers existentes para remover
-seus tratamentos locais repetidos de erro ainda precisa ser concluída antes de marcar
-SCRUM-21 como pronto.
-
-Testes novos cobrem cache miss/hit, fallback quando Redis está indisponível, invalidação
-por prefixo, validação de DTO e formato de erro. Próximo passo: concluir a migração do
-tratamento de erros e rodar a suíte completa antes de fechar a Sprint 1; eventos,
+Os controllers encaminham erros de negócio e falhas inesperadas ao middleware central,
+que padroniza a resposta `{ erro: { codigo, mensagem } }` e não expõe detalhes internos.
+DTOs validam as entradas de escrita de produtos, clientes e pedidos; as respostas de
+cliente passam por uma whitelist que exclui hash de senha e campos internos. Os testes
+integração cobrem miss → hit → invalidação após atualização, além da validação pelo
+middleware e do DTO de saída. A suíte do backend passa com 137 testes; eventos,
 microsserviços e Nginx ficam para a Sprint 2.
 
 ## Placar da rubrica

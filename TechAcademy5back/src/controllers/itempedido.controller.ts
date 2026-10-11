@@ -5,34 +5,26 @@ import Pedido from "../models/Pedido";
 import Produto from "../models/Produto";
 import sequelize from "../config/database";
 import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination";
+import AppError from "../utils/app-error";
 
-const getClienteAutenticado = (req: Request, res: Response) => {
+const getClienteAutenticado = (req: Request) => {
   if (!req.cliente) {
-    res.status(401).json({ mensagem: "Usuario nao autenticado." });
-    return null;
+    throw new AppError(401, "Usuario nao autenticado.", "NAO_AUTENTICADO");
   }
 
   return req.cliente;
 };
 
-const validarAcessoAoPedido = (req: Request, res: Response, idClientePedido: number) => {
-  const clienteLogado = getClienteAutenticado(req, res);
-
-  if (!clienteLogado) {
-    return false;
-  }
-
+const validarAcessoAoPedido = (req: Request, idClientePedido: number) => {
+  const clienteLogado = getClienteAutenticado(req);
   if (!clienteLogado.admin && idClientePedido !== clienteLogado.id_cliente) {
-    res.status(403).json({ mensagem: "Voce nao tem permissao para acessar este pedido." });
-    return false;
+    throw new AppError(403, "Voce nao tem permissao para acessar este pedido.", "ACESSO_NEGADO");
   }
-
-  return true;
 };
 
 
 export const listarItensDoPedido = async (req: Request, res: Response): Promise<void> => {
-  try {
+
     const id_pedido = Number(req.params.id_pedido);
     const { page, limit, offset } = getPaginationParams(req);
     const shouldPaginate = req.query.page !== undefined || req.query.limit !== undefined;
@@ -40,13 +32,11 @@ export const listarItensDoPedido = async (req: Request, res: Response): Promise<
     const pedido = await Pedido.findByPk(id_pedido);
 
     if (!pedido) {
-      res.status(404).json({ mensagem: "Pedido nao encontrado." });
-      return;
+      throw new AppError(404, "Pedido nao encontrado.", "NAO_ENCONTRADO");
+
     }
 
-    if (!validarAcessoAoPedido(req, res, pedido.id_cliente)) {
-      return;
-    }
+    validarAcessoAoPedido(req, pedido.id_cliente);
 
     const baseOptions = {
       where: { id_pedido },
@@ -69,15 +59,12 @@ export const listarItensDoPedido = async (req: Request, res: Response): Promise<
       : await ItemPedido.findAndCountAll(baseOptions);
 
     res.status(200).json(shouldPaginate ? buildPaginatedResponse(itens, count, page, limit) : itens);
-  } catch (error) {
-    console.error("Erro ao listar itens do pedido:", error);
-    res.status(500).json({ mensagem: "Erro interno ao listar itens do pedido." });
-  }
+
 };
 
 
 export const buscarItemPorId = async (req: Request, res: Response): Promise<void> => {
-  try {
+
     const id_item = Number(req.params.id);
 
     const item = await ItemPedido.findByPk(id_item, {
@@ -91,26 +78,21 @@ export const buscarItemPorId = async (req: Request, res: Response): Promise<void
     });
 
     if (!item) {
-      res.status(404).json({ mensagem: "Item nao encontrado." });
-      return;
+      throw new AppError(404, "Item nao encontrado.", "NAO_ENCONTRADO");
+
     }
 
     const pedido = await Pedido.findByPk(item.id_pedido);
 
     if (!pedido) {
-      res.status(404).json({ mensagem: "Pedido nao encontrado." });
-      return;
+      throw new AppError(404, "Pedido nao encontrado.", "NAO_ENCONTRADO");
+
     }
 
-    if (!validarAcessoAoPedido(req, res, pedido.id_cliente)) {
-      return;
-    }
+    validarAcessoAoPedido(req, pedido.id_cliente);
 
     res.status(200).json(item);
-  } catch (error) {
-    console.error("Erro ao buscar item:", error);
-    res.status(500).json({ mensagem: "Erro interno ao buscar item." });
-  }
+
 };
 
 
@@ -155,37 +137,33 @@ async function ajustarEstoque(
 
 export const adicionarItem = async (req: Request, res: Response): Promise<void> => {
   const transaction = await sequelize.transaction();
+  let transactionCommitted = false;
 
   try {
     const id_pedido = Number(req.params.id_pedido);
     const { id_produto, quantidade, preco_unitario } = req.body;
 
     if (!id_produto || !quantidade || !preco_unitario) {
-      await transaction.rollback();
-      res.status(400).json({ mensagem: "id_produto, quantidade e preco_unitario sao obrigatorios." });
-      return;
+
+      throw new AppError(400, "id_produto, quantidade e preco_unitario sao obrigatorios.", "REQUISICAO_INVALIDA");
+
     }
 
     const pedido = await Pedido.findByPk(id_pedido, { transaction });
 
     if (!pedido) {
-      await transaction.rollback();
-      res.status(404).json({ mensagem: "Pedido nao encontrado." });
-      return;
+
+      throw new AppError(404, "Pedido nao encontrado.", "NAO_ENCONTRADO");
+
     }
 
-    if (!validarAcessoAoPedido(req, res, pedido.id_cliente)) {
-      await transaction.rollback();
-      return;
-    }
+    validarAcessoAoPedido(req, pedido.id_cliente);
 
     const statusBloqueados = ["enviado", "entregue", "cancelado"];
     if (statusBloqueados.includes(pedido.status ?? "")) {
-      await transaction.rollback();
-      res.status(409).json({
-        mensagem: `Nao e possivel adicionar itens a um pedido com status "${pedido.status}".`,
-      });
-      return;
+
+      throw new AppError(409, `Nao e possivel adicionar itens a um pedido com status "${pedido.status}".`, "CONFLITO");
+
     }
 
     const produto = await Produto.findOne({
@@ -194,9 +172,9 @@ export const adicionarItem = async (req: Request, res: Response): Promise<void> 
     });
 
     if (!produto) {
-      await transaction.rollback();
-      res.status(404).json({ mensagem: "Produto nao encontrado ou inativo." });
-      return;
+
+      throw new AppError(404, "Produto nao encontrado ou inativo.", "NAO_ENCONTRADO");
+
     }
 
     const itemExistente = await ItemPedido.findOne({
@@ -207,9 +185,9 @@ export const adicionarItem = async (req: Request, res: Response): Promise<void> 
     const erroEstoque = await ajustarEstoque(Number(id_produto), Number(quantidade), transaction);
 
     if (erroEstoque) {
-      await transaction.rollback();
-      res.status(409).json({ mensagem: erroEstoque });
-      return;
+
+      throw new AppError(409, erroEstoque, "CONFLITO");
+
     }
 
     let item: ItemPedido;
@@ -240,57 +218,55 @@ export const adicionarItem = async (req: Request, res: Response): Promise<void> 
     await pedido.update({ valor: novoTotal }, { transaction });
 
     await transaction.commit();
+    transactionCommitted = true;
 
     res.status(201).json({ mensagem: "Item adicionado ao pedido.", item });
   } catch (error) {
-    await transaction.rollback();
-    console.error("Erro ao adicionar item:", error);
-    res.status(500).json({ mensagem: "Erro interno ao adicionar item." });
+    if (!transactionCommitted) {
+      await transaction.rollback();
+    }
+    throw error;
   }
 };
 
 
 export const atualizarQuantidadeItem = async (req: Request, res: Response): Promise<void> => {
   const transaction = await sequelize.transaction();
+  let transactionCommitted = false;
 
   try {
     const id_item = Number(req.params.id);
     const { quantidade } = req.body;
 
     if (!quantidade || Number(quantidade) < 1) {
-      await transaction.rollback();
-      res.status(400).json({ mensagem: "Quantidade deve ser maior que zero." });
-      return;
+
+      throw new AppError(400, "Quantidade deve ser maior que zero.", "REQUISICAO_INVALIDA");
+
     }
 
     const item = await ItemPedido.findByPk(id_item, { transaction });
 
     if (!item) {
-      await transaction.rollback();
-      res.status(404).json({ mensagem: "Item nao encontrado." });
-      return;
+
+      throw new AppError(404, "Item nao encontrado.", "NAO_ENCONTRADO");
+
     }
 
     const pedido = await Pedido.findByPk(item.id_pedido, { transaction });
 
     if (!pedido) {
-      await transaction.rollback();
-      res.status(404).json({ mensagem: "Pedido nao encontrado." });
-      return;
+
+      throw new AppError(404, "Pedido nao encontrado.", "NAO_ENCONTRADO");
+
     }
 
-    if (!validarAcessoAoPedido(req, res, pedido.id_cliente)) {
-      await transaction.rollback();
-      return;
-    }
+    validarAcessoAoPedido(req, pedido.id_cliente);
 
     const statusBloqueados = ["enviado", "entregue", "cancelado"];
     if (statusBloqueados.includes(pedido.status ?? "")) {
-      await transaction.rollback();
-      res.status(409).json({
-        mensagem: `Nao e possivel editar itens de um pedido com status "${pedido.status}".`,
-      });
-      return;
+
+      throw new AppError(409, `Nao e possivel editar itens de um pedido com status "${pedido.status}".`, "CONFLITO");
+
     }
 
     const erroEstoque = await ajustarEstoque(
@@ -300,9 +276,9 @@ export const atualizarQuantidadeItem = async (req: Request, res: Response): Prom
     );
 
     if (erroEstoque) {
-      await transaction.rollback();
-      res.status(409).json({ mensagem: erroEstoque });
-      return;
+
+      throw new AppError(409, erroEstoque, "CONFLITO");
+
     }
 
     await item.update({ quantidade: Number(quantidade) }, { transaction });
@@ -315,18 +291,21 @@ export const atualizarQuantidadeItem = async (req: Request, res: Response): Prom
     await pedido.update({ valor: novoTotal }, { transaction });
 
     await transaction.commit();
+    transactionCommitted = true;
 
     res.status(200).json({ mensagem: "Quantidade atualizada.", item });
   } catch (error) {
-    await transaction.rollback();
-    console.error("Erro ao atualizar item:", error);
-    res.status(500).json({ mensagem: "Erro interno ao atualizar item." });
+    if (!transactionCommitted) {
+      await transaction.rollback();
+    }
+    throw error;
   }
 };
 
 
 export const removerItem = async (req: Request, res: Response): Promise<void> => {
   const transaction = await sequelize.transaction();
+  let transactionCommitted = false;
 
   try {
     const id_item = Number(req.params.id);
@@ -334,31 +313,26 @@ export const removerItem = async (req: Request, res: Response): Promise<void> =>
     const item = await ItemPedido.findByPk(id_item, { transaction });
 
     if (!item) {
-      await transaction.rollback();
-      res.status(404).json({ mensagem: "Item nao encontrado." });
-      return;
+
+      throw new AppError(404, "Item nao encontrado.", "NAO_ENCONTRADO");
+
     }
 
     const pedido = await Pedido.findByPk(item.id_pedido, { transaction });
 
     if (!pedido) {
-      await transaction.rollback();
-      res.status(404).json({ mensagem: "Pedido nao encontrado." });
-      return;
+
+      throw new AppError(404, "Pedido nao encontrado.", "NAO_ENCONTRADO");
+
     }
 
-    if (!validarAcessoAoPedido(req, res, pedido.id_cliente)) {
-      await transaction.rollback();
-      return;
-    }
+    validarAcessoAoPedido(req, pedido.id_cliente);
 
     const statusBloqueados = ["enviado", "entregue", "cancelado"];
     if (statusBloqueados.includes(pedido.status ?? "")) {
-      await transaction.rollback();
-      res.status(409).json({
-        mensagem: `Nao e possivel remover itens de um pedido com status "${pedido.status}".`,
-      });
-      return;
+
+      throw new AppError(409, `Nao e possivel remover itens de um pedido com status "${pedido.status}".`, "CONFLITO");
+
     }
 
     await ajustarEstoque(item.id_produto, -item.quantidade, transaction);
@@ -372,11 +346,13 @@ export const removerItem = async (req: Request, res: Response): Promise<void> =>
     await pedido.update({ valor: novoTotal }, { transaction });
 
     await transaction.commit();
+    transactionCommitted = true;
 
     res.status(200).json({ mensagem: "Item removido do pedido." });
   } catch (error) {
-    await transaction.rollback();
-    console.error("Erro ao remover item:", error);
-    res.status(500).json({ mensagem: "Erro interno ao remover item." });
+    if (!transactionCommitted) {
+      await transaction.rollback();
+    }
+    throw error;
   }
 };

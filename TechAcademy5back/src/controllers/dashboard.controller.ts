@@ -21,7 +21,7 @@ const STATUS_FATURADOS = ["pago", "enviado", "entregue"];
 const LIMITE_ESTOQUE_BAIXO = 5;
 
 export const obterDashboard = async (_req: Request, res: Response): Promise<void> => {
-  try {
+
     const [contagens, faturamento, totalClientesAtivos, totalProdutosAtivos, produtosEstoqueBaixo] =
       await Promise.all([
         Pedido.findAll({
@@ -63,8 +63,5 @@ export const obterDashboard = async (_req: Request, res: Response): Promise<void
       totalProdutosAtivos,
       produtosEstoqueBaixo,
     });
-  } catch (error) {
-    console.error("Erro ao montar dashboard:", error);
-    res.status(500).json({ mensagem: "Erro interno ao montar o dashboard." });
-  }
+
 };

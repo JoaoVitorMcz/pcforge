@@ -107,12 +107,8 @@ describe("Categoria CRUD - Controle de Acesso Admin", () => {
 
       const res = mockResponse();
 
-      await criarCategoria(req as Request, res as Response);
-
-      expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith({
-        erro: "Erro ao criar categoria",
-      });
+      await expect(criarCategoria(req as Request, res as Response)).rejects.toThrow("Validação");
+      expect(res.status).not.toHaveBeenCalled();
     });
 
     it("29. Erro ao criar categoria no banco", async () => {
@@ -132,12 +128,8 @@ describe("Categoria CRUD - Controle de Acesso Admin", () => {
 
       const res = mockResponse();
 
-      await criarCategoria(req as Request, res as Response);
-
-      expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith({
-        erro: "Erro ao criar categoria",
-      });
+      await expect(criarCategoria(req as Request, res as Response)).rejects.toThrow("DB Error");
+      expect(res.status).not.toHaveBeenCalled();
     });
   });
 
@@ -192,12 +184,11 @@ describe("Categoria CRUD - Controle de Acesso Admin", () => {
 
       const res = mockResponse();
 
-      await atualizarCategoria(req as Request, res as Response);
-
-      expect(res.status).toHaveBeenCalledWith(404);
-      expect(res.json).toHaveBeenCalledWith({
-        erro: "Categoria não encontrada",
+      await expect(atualizarCategoria(req as Request, res as Response)).rejects.toMatchObject({
+        statusCode: 404,
+        codigo: "NAO_ENCONTRADO",
       });
+      expect(res.status).not.toHaveBeenCalled();
     });
 
     it("32. Preserva campos não enviados na atualização", async () => {
@@ -275,12 +266,11 @@ describe("Categoria CRUD - Controle de Acesso Admin", () => {
 
       const res = mockResponse();
 
-      await deletarCategoria(req as Request, res as Response);
-
-      expect(res.status).toHaveBeenCalledWith(404);
-      expect(res.json).toHaveBeenCalledWith({
-        erro: "Categoria não encontrada",
+      await expect(deletarCategoria(req as Request, res as Response)).rejects.toMatchObject({
+        statusCode: 404,
+        codigo: "NAO_ENCONTRADO",
       });
+      expect(res.status).not.toHaveBeenCalled();
     });
 
     it("35. Erro ao deletar categoria no banco", async () => {
@@ -297,12 +287,8 @@ describe("Categoria CRUD - Controle de Acesso Admin", () => {
 
       const res = mockResponse();
 
-      await deletarCategoria(req as Request, res as Response);
-
-      expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith({
-        erro: "Erro ao deletar categoria",
-      });
+      await expect(deletarCategoria(req as Request, res as Response)).rejects.toThrow("DB Error");
+      expect(res.status).not.toHaveBeenCalled();
     });
 
     it("36. Usuário comum não pode deletar categoria", async () => {
@@ -342,12 +328,8 @@ describe("Categoria CRUD - Controle de Acesso Admin", () => {
 
       const res = mockResponse();
 
-      await atualizarCategoria(req as Request, res as Response);
-
-      expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith({
-        erro: "Erro ao atualizar categoria",
-      });
+      await expect(atualizarCategoria(req as Request, res as Response)).rejects.toThrow("Conexão perdida");
+      expect(res.status).not.toHaveBeenCalled();
     });
 
     it("38. Validação - admin pode fazer qualquer operação CRUD", async () => {

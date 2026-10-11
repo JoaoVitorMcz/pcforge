@@ -100,9 +100,11 @@ describe("itempedido.controller", () => {
     );
     const res = mockResponse();
 
-    await listarItensDoPedido(req as Request, res as Response);
-
-    expect(res.status).toHaveBeenCalledWith(403);
+    await expect(listarItensDoPedido(req as Request, res as Response)).rejects.toMatchObject({
+      statusCode: 403,
+      codigo: "ACESSO_NEGADO",
+    });
+    expect(res.status).not.toHaveBeenCalled();
   });
 
   it("3. busca item por id quando o pedido pertence ao cliente", async () => {
@@ -248,10 +250,13 @@ describe("itempedido.controller", () => {
     );
     const res = mockResponse();
 
-    await atualizarQuantidadeItem(req as Request, res as Response);
+    await expect(atualizarQuantidadeItem(req as Request, res as Response)).rejects.toMatchObject({
+      statusCode: 409,
+      codigo: "CONFLITO",
+    });
 
     // Precisaria de mais 4 e so ha 1: nada e gravado e a transacao volta atras.
-    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.status).not.toHaveBeenCalled();
     expect(transactionMock.rollback).toHaveBeenCalled();
     expect(transactionMock.commit).not.toHaveBeenCalled();
     expect(Produto.decrement).not.toHaveBeenCalled();

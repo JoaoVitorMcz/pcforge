@@ -142,9 +142,11 @@ describe("pedido.controller", () => {
     const req = mockRequest({}, { id: "1" }, {}, { id_cliente: 1, admin: false, email: "teste@teste.com" });
     const res = mockResponse();
 
-    await buscarPedidoPorId(req as Request, res as Response);
-
-    expect(res.status).toHaveBeenCalledWith(403);
+    await expect(buscarPedidoPorId(req as Request, res as Response)).rejects.toMatchObject({
+      statusCode: 403,
+      codigo: "ACESSO_NEGADO",
+    });
+    expect(res.status).not.toHaveBeenCalled();
   });
 
   it("4. retorna 400 se o service acusar dados invalidos", async () => {
@@ -160,9 +162,10 @@ describe("pedido.controller", () => {
     );
     const res = mockResponse();
 
-    await criarPedido(req as Request, res as Response);
-
-    expect(res.status).toHaveBeenCalledWith(400);
+    await expect(criarPedido(req as Request, res as Response)).rejects.toMatchObject({
+      statusCode: 400,
+    });
+    expect(res.status).not.toHaveBeenCalled();
   });
 
   it("5. cria pedido com sucesso e retorna 201", async () => {
@@ -237,9 +240,11 @@ describe("pedido.controller", () => {
     );
     const res = mockResponse();
 
-    await atualizarStatusPedido(req as Request, res as Response);
-
-    expect(res.status).toHaveBeenCalledWith(409);
+    await expect(atualizarStatusPedido(req as Request, res as Response)).rejects.toMatchObject({
+      statusCode: 409,
+      codigo: "CONFLITO",
+    });
+    expect(res.status).not.toHaveBeenCalled();
   });
 
   it("7b. aceita transicao de status valida", async () => {

@@ -2,8 +2,26 @@ import express from "express";
 import request from "supertest";
 import errorMiddleware from "../middleware/error.middleware";
 import AppError from "../utils/app-error";
+import clienteRoutes from "../routes/cliente.routes";
 
 describe("Middleware de erro", () => {
+  it("recebe a falha de validação da rota pelo middleware central", async () => {
+    const erroApp = express();
+    erroApp.use(express.json());
+    erroApp.use("/clientes", clienteRoutes);
+    erroApp.use(errorMiddleware);
+
+    const resposta = await request(erroApp).post("/clientes").send({});
+
+    expect(resposta.status).toBe(400);
+    expect(resposta.body).toEqual({
+      erro: {
+        codigo: "REQUISICAO_INVALIDA",
+        mensagem: "O campo nome deve ser um texto não vazio.",
+      },
+    });
+  });
+
   it("não expõe detalhes internos na resposta 500", async () => {
     const erroApp = express();
     erroApp.get("/erro", () => {

@@ -113,12 +113,11 @@ describe("Produto CRUD - Controle de Acesso Admin", () => {
 
       const res = mockResponse();
 
-      await criarProduto(req as Request, res as Response);
-
-      expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({
-        mensagem: "Nome e valor são obrigatórios.",
+      await expect(criarProduto(req as Request, res as Response)).rejects.toMatchObject({
+        statusCode: 400,
+        codigo: "REQUISICAO_INVALIDA",
       });
+      expect(res.status).not.toHaveBeenCalled();
     });
 
     it("20. Erro ao criar produto no banco", async () => {
@@ -138,12 +137,8 @@ describe("Produto CRUD - Controle de Acesso Admin", () => {
 
       const res = mockResponse();
 
-      await criarProduto(req as Request, res as Response);
-
-      expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith({
-        mensagem: "Erro interno ao criar produto.",
-      });
+      await expect(criarProduto(req as Request, res as Response)).rejects.toThrow("DB Error");
+      expect(res.status).not.toHaveBeenCalled();
     });
   });
 
@@ -200,12 +195,11 @@ describe("Produto CRUD - Controle de Acesso Admin", () => {
 
       const res = mockResponse();
 
-      await atualizarProduto(req as Request, res as Response);
-
-      expect(res.status).toHaveBeenCalledWith(404);
-      expect(res.json).toHaveBeenCalledWith({
-        mensagem: "Produto não encontrado.",
+      await expect(atualizarProduto(req as Request, res as Response)).rejects.toMatchObject({
+        statusCode: 404,
+        codigo: "NAO_ENCONTRADO",
       });
+      expect(res.status).not.toHaveBeenCalled();
     });
 
     it("23. Preserva campos não enviados na atualização", async () => {
@@ -286,9 +280,11 @@ describe("Produto CRUD - Controle de Acesso Admin", () => {
 
       const res = mockResponse();
 
-      await desativarProduto(req as Request, res as Response);
-
-      expect(res.status).toHaveBeenCalledWith(404);
+      await expect(desativarProduto(req as Request, res as Response)).rejects.toMatchObject({
+        statusCode: 404,
+        codigo: "NAO_ENCONTRADO",
+      });
+      expect(res.status).not.toHaveBeenCalled();
     });
   });
 });

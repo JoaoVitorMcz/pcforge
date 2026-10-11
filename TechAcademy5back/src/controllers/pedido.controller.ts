@@ -5,8 +5,9 @@ import Produto from "../models/Produto";
 import Cliente from "../models/Cliente";
 import Endereco from "../models/Endereco";
 import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination";
-import { criarPedidoComItens, HttpError } from "../services/pedido.service";
+import { criarPedidoComItens } from "../services/pedido.service";
 import sequelize from "../config/database";
+import AppError from "../utils/app-error";
 
 /**
  * Transicoes de status que o pedido aceita.
@@ -24,10 +25,9 @@ const TRANSICOES_DE_STATUS: Record<string, string[]> = {
   cancelado: [],
 };
 
-const getClienteAutenticado = (req: Request, res: Response) => {
+const getClienteAutenticado = (req: Request) => {
   if (!req.cliente) {
-    res.status(401).json({ mensagem: "Usuario nao autenticado." });
-    return null;
+    throw new AppError(401, "Usuario nao autenticado.", "NAO_AUTENTICADO");
   }
 
   return req.cliente;
@@ -35,7 +35,7 @@ const getClienteAutenticado = (req: Request, res: Response) => {
 
 
 export const listarPedidos = async (req: Request, res: Response): Promise<void> => {
-  try {
+
     const { page, limit, offset } = getPaginationParams(req);
     const shouldPaginate = req.query.page !== undefined || req.query.limit !== undefined;
     const baseOptions = {
@@ -76,10 +76,7 @@ export const listarPedidos = async (req: Request, res: Response): Promise<void> 
     res
       .status(200)
       .json(shouldPaginate ? buildPaginatedResponse(pedidos, count, page, limit) : pedidos);
-  } catch (error) {
-    console.error("Erro ao listar pedidos:", error);
-    res.status(500).json({ mensagem: "Erro interno ao listar pedidos." });
-  }
+
 };
 
 
@@ -87,7 +84,7 @@ export const listarPedidosPorCliente = async (
   req: Request,
   res: Response
 ): Promise<void> => {
-  try {
+
     const id_cliente = Number(req.params.id_cliente);
     const { page, limit, offset } = getPaginationParams(req);
     const shouldPaginate = req.query.page !== undefined || req.query.limit !== undefined;
@@ -125,17 +122,14 @@ export const listarPedidosPorCliente = async (
     res
       .status(200)
       .json(shouldPaginate ? buildPaginatedResponse(pedidos, count, page, limit) : pedidos);
-  } catch (error) {
-    console.error("Erro ao listar pedidos do cliente:", error);
-    res.status(500).json({ mensagem: "Erro interno ao listar pedidos do cliente." });
-  }
+
 };
 
 
 export const buscarPedidoPorId = async (req: Request, res: Response): Promise<void> => {
-  try {
+
     const id_pedido = Number(req.params.id);
-    const clienteLogado = getClienteAutenticado(req, res);
+    const clienteLogado = getClienteAutenticado(req);
 
     if (!clienteLogado) {
       return;
@@ -167,25 +161,22 @@ export const buscarPedidoPorId = async (req: Request, res: Response): Promise<vo
     });
 
     if (!pedido) {
-      res.status(404).json({ mensagem: "Pedido nao encontrado." });
-      return;
+      throw new AppError(404, "Pedido nao encontrado.", "NAO_ENCONTRADO");
+
     }
 
     if (!clienteLogado.admin && pedido.id_cliente !== clienteLogado.id_cliente) {
-      res.status(403).json({ mensagem: "Voce nao tem permissao para acessar este pedido." });
-      return;
+      throw new AppError(403, "Voce nao tem permissao para acessar este pedido.", "ACESSO_NEGADO");
+
     }
 
     res.status(200).json(pedido);
-  } catch (error) {
-    console.error("Erro ao buscar pedido:", error);
-    res.status(500).json({ mensagem: "Erro interno ao buscar pedido." });
-  }
+
 };
 
 
 export const criarPedido = async (req: Request, res: Response): Promise<void> => {
-  try {
+
     const clienteAutenticado = req.cliente;
     const isAdmin = clienteAutenticado?.admin === true;
     const idCliente =
@@ -194,8 +185,8 @@ export const criarPedido = async (req: Request, res: Response): Promise<void> =>
         : Number(clienteAutenticado?.id_cliente);
 
     if (!idCliente) {
-      res.status(401).json({ mensagem: "Usuario nao autenticado." });
-      return;
+      throw new AppError(401, "Usuario nao autenticado.", "NAO_AUTENTICADO");
+
     }
 
     const pedidoCriado = await criarPedidoComItens(
@@ -209,15 +200,7 @@ export const criarPedido = async (req: Request, res: Response): Promise<void> =>
     );
 
     res.status(201).json({ mensagem: "Pedido criado com sucesso.", pedido: pedidoCriado });
-  } catch (error) {
-    if (error instanceof HttpError) {
-      res.status(error.statusCode).json({ mensagem: error.message });
-      return;
-    }
 
-    console.error("Erro ao criar pedido:", error);
-    res.status(500).json({ mensagem: "Erro interno ao criar pedido." });
-  }
 };
 
 interface PedidoUpdateData {
@@ -227,8 +210,8 @@ interface PedidoUpdateData {
 
 
 export const atualizarStatusPedido = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const clienteLogado = getClienteAutenticado(req, res);
+
+    const clienteLogado = getClienteAutenticado(req);
 
     if (!clienteLogado) {
       return;
@@ -241,29 +224,25 @@ export const atualizarStatusPedido = async (req: Request, res: Response): Promis
     const statusValidos = Object.keys(TRANSICOES_DE_STATUS);
 
     if (!status || !statusValidos.includes(status)) {
-      res.status(400).json({
-        mensagem: `Status invalido. Use um dos seguintes: ${statusValidos.join(", ")}.`,
-      });
-      return;
+      throw new AppError(400, `Status invalido. Use um dos seguintes: ${statusValidos.join(", ")}.`, "REQUISICAO_INVALIDA");
+
     }
 
     const pedido = await Pedido.findByPk(id_pedido);
 
     if (!pedido) {
-      res.status(404).json({ mensagem: "Pedido nao encontrado." });
-      return;
+      throw new AppError(404, "Pedido nao encontrado.", "NAO_ENCONTRADO");
+
     }
 
     const statusAtual = pedido.status ?? "pendente";
     const destinosPermitidos = TRANSICOES_DE_STATUS[statusAtual] ?? [];
 
     if (status !== statusAtual && !destinosPermitidos.includes(status)) {
-      res.status(409).json({
-        mensagem: destinosPermitidos.length
+      throw new AppError(409, destinosPermitidos.length
           ? `Nao e possivel mudar de "${statusAtual}" para "${status}". Transicoes validas: ${destinosPermitidos.join(", ")}.`
-          : `Pedido com status "${statusAtual}" e final e nao aceita mudanca de status.`,
-      });
-      return;
+          : `Pedido com status "${statusAtual}" e final e nao aceita mudanca de status.`, "CONFLITO");
+
     }
 
     const dadosAtualizados: PedidoUpdateData = { status };
@@ -275,17 +254,14 @@ export const atualizarStatusPedido = async (req: Request, res: Response): Promis
     await pedido.update(dadosAtualizados);
 
     res.status(200).json({ mensagem: "Status do pedido atualizado.", pedido });
-  } catch (error) {
-    console.error("Erro ao atualizar status do pedido:", error);
-    res.status(500).json({ mensagem: "Erro interno ao atualizar status." });
-  }
+
 };
 
 
 export const cancelarPedido = async (req: Request, res: Response): Promise<void> => {
-  try {
+
     const id_pedido = Number(req.params.id);
-    const clienteLogado = getClienteAutenticado(req, res);
+    const clienteLogado = getClienteAutenticado(req);
 
     if (!clienteLogado) {
       return;
@@ -294,22 +270,20 @@ export const cancelarPedido = async (req: Request, res: Response): Promise<void>
     const pedido = await Pedido.findByPk(id_pedido);
 
     if (!pedido) {
-      res.status(404).json({ mensagem: "Pedido nao encontrado." });
-      return;
+      throw new AppError(404, "Pedido nao encontrado.", "NAO_ENCONTRADO");
+
     }
 
     if (!clienteLogado.admin && pedido.id_cliente !== clienteLogado.id_cliente) {
-      res.status(403).json({ mensagem: "Voce nao tem permissao para cancelar este pedido." });
-      return;
+      throw new AppError(403, "Voce nao tem permissao para cancelar este pedido.", "ACESSO_NEGADO");
+
     }
 
     const statusNaoCancelaveis = ["enviado", "entregue", "cancelado"];
 
     if (statusNaoCancelaveis.includes(pedido.status ?? "")) {
-      res.status(409).json({
-        mensagem: `Pedido com status "${pedido.status}" nao pode ser cancelado.`,
-      });
-      return;
+      throw new AppError(409, `Pedido com status "${pedido.status}" nao pode ser cancelado.`, "CONFLITO");
+
     }
 
     // Devolver o estoque e o cancelamento tem de acontecer juntos: se a
@@ -337,8 +311,5 @@ export const cancelarPedido = async (req: Request, res: Response): Promise<void>
     }
 
     res.status(200).json({ mensagem: "Pedido cancelado com sucesso." });
-  } catch (error) {
-    console.error("Erro ao cancelar pedido:", error);
-    res.status(500).json({ mensagem: "Erro interno ao cancelar pedido." });
-  }
+
 };

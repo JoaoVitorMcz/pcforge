@@ -57,12 +57,8 @@ describe("listarProdutos", () => {
     const req = mockRequest();
     const res = mockResponse();
 
-    await listarProdutos(req as Request, res as Response);
-
-    expect(res.status).toHaveBeenCalledWith(500);
-    expect(res.json).toHaveBeenCalledWith({
-      mensagem: "Erro interno ao listar produtos.",
-    });
+    await expect(listarProdutos(req as Request, res as Response)).rejects.toThrow("Erro no banco");
+    expect(res.status).not.toHaveBeenCalled();
   });
 });
 
@@ -88,9 +84,11 @@ describe("buscarProdutoPorId", () => {
     const req = mockRequest({}, { id: "999" });
     const res = mockResponse();
 
-    await buscarProdutoPorId(req as Request, res as Response);
-
-    expect(res.status).toHaveBeenCalledWith(404);
+    await expect(buscarProdutoPorId(req as Request, res as Response)).rejects.toMatchObject({
+      statusCode: 404,
+      codigo: "NAO_ENCONTRADO",
+    });
+    expect(res.status).not.toHaveBeenCalled();
   });
 });
 
@@ -114,9 +112,11 @@ describe("criarProduto", () => {
     const req = mockRequest({ nome: "RTX 4070" });
     const res = mockResponse();
 
-    await criarProduto(req as Request, res as Response);
-
-    expect(res.status).toHaveBeenCalledWith(400);
+    await expect(criarProduto(req as Request, res as Response)).rejects.toMatchObject({
+      statusCode: 400,
+      codigo: "REQUISICAO_INVALIDA",
+    });
+    expect(res.status).not.toHaveBeenCalled();
   });
 });
 
