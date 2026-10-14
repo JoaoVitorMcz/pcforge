@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ main, dev ]
 
+  # Gatilho manual. O repositorio nasceu de um push --mirror e o GitHub nunca
+  # processou os eventos automaticos; isso permite disparar o pipeline a mao.
+  workflow_dispatch:
+
 jobs:
   backend-tests:
     name: Backend Tests
