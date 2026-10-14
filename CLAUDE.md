@@ -59,6 +59,10 @@ Contas criadas pelo seed, ambas com senha `Senha@123`:
 - Código, comentários e mensagens de commit em **português**.
 - O app mobile descobre o IP da API pelo host do dev server do Expo, então funciona na
   máquina de qualquer pessoa da dupla sem editar arquivo.
+- **Diagramas ficam no repositório.** Mermaid dentro dos `.md` por padrão; draw.io, em
+  `.drawio.png` sob `docs/diagramas/`, só quando o layout carrega significado (C4 e Context
+  Map). O padrão e o índice de todos eles estão em
+  [docs/diagramas/README.md](docs/diagramas/README.md).
 
 ## Armadilhas já pagas
 
