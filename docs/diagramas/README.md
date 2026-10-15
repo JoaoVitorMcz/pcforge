@@ -85,6 +85,7 @@ Sem números de versão no nome e sem data. O histórico do git já guarda isso.
 | Modelo de dados do RBAC | Mermaid `erDiagram` | [rbac.md](../rbac.md) |
 | Fluxo completo de autorização | Mermaid `sequenceDiagram` | [rbac.md](../rbac.md) |
 | Arquitetura do monólito | Mermaid `flowchart` | [contextualizacao.md](../contextualizacao.md) |
+| Domínios Cynefin com o projeto posicionado | Mermaid `flowchart` | [gestao/cynefin.md](../gestao/cynefin.md) |
 
 ### Previstos — módulo de microsserviços
 
@@ -92,7 +93,6 @@ O arquivo de destino já está definido. O card que produzir o diagrama escreve 
 
 | Diagrama | Ferramenta | Arquivo | Card |
 |---|---|---|---|
-| Domínios Cynefin com o projeto posicionado | Mermaid | `docs/cynefin.md` | SCRUM-14 |
 | C4 nível 1 — Contexto | draw.io | `docs/diagramas/c4-contexto.drawio.png` | SCRUM-28 |
 | C4 nível 2 — Containers | draw.io | `docs/diagramas/c4-containers.drawio.png` | SCRUM-28 |
 | Context Map — Loja, Pagamentos, Notificações e Mercado Pago com ACL | draw.io | `docs/diagramas/context-map.drawio.png` | SCRUM-29 |
