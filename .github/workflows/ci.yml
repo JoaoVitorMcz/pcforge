@@ -114,3 +114,26 @@ jobs:
       - name: Mobile Tests
         working-directory: TechAcademy5mobile
         run: npm test
+
+  # Rastreabilidade entre o card do Jira e o codigo: e o SCRUM-<n> no nome da
+  # branch que faz a branch aparecer no painel de desenvolvimento do card.
+  # Avisa sem reprovar de proposito: correcao urgente de infraestrutura pode
+  # nao ter card, como o fix que destravou o Actions neste repositorio.
+  branch-tag:
+    name: ID do card na branch
+    runs-on: ubuntu-latest
+    # So em PR: a dev e a main nunca tem ID e avisariam a cada push.
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Conferir o ID do card
+        run: |
+          BRANCH="${{ github.head_ref || github.ref_name }}"
+          if echo "$BRANCH" | grep -qE 'SCRUM-[0-9]+'; then
+            CARD=$(echo "$BRANCH" | grep -oE 'SCRUM-[0-9]+' | head -1)
+            echo "✅ Branch \`$BRANCH\` ligada ao card **$CARD**." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ A branch \`$BRANCH\` não tem o ID do card." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Sem o \`SCRUM-<n>\` no nome, a branch não aparece no painel de desenvolvimento do card e o trabalho fica sem rastro até o requisito. Convenção: \`feature/SCRUM-<n>-descricao-curta\` (docs/gestao/fluxo-de-trabalho.md)." >> $GITHUB_STEP_SUMMARY
+            echo "::warning::Branch '$BRANCH' sem o ID do card (SCRUM-<n>)."
+          fi

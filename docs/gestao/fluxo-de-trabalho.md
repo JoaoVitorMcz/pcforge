@@ -50,15 +50,38 @@ feature/SCRUM-<n>-descricao-curta
 fix/SCRUM-<n>-descricao-curta
 ```
 
-Exemplos reais do projeto: `feature/SCRUM-44-padronizar-diagramas`,
-`fix/habilitar-actions-no-pcforge`.
+Exemplo real do projeto: `feature/SCRUM-44-padronizar-diagramas`.
 
 Commits seguem **Conventional Commits** em português — há commitlint no hook `commit-msg`,
 então uma mensagem fora do padrão é recusada na hora do commit. Tipos em uso: `feat`, `fix`,
 `docs`, `chore`, `test`, `ci`, `refactor`, `build`.
 
-O número do card vai no **nome da branch**, não em cada commit. A branch aparece no PR, e o
-PR fica ligado ao card.
+### Por que o ID do card vai na branch
+
+Não é convenção de nomenclatura: é **rastreabilidade**.
+
+É o `SCRUM-<n>` no nome da branch que faz a branch e o PR aparecerem no painel de
+desenvolvimento do card no Jira — inclusive uma branch recém-criada, sem nenhum commit. Sem
+ele, o card continua sendo uma descrição de tarefa, e não há como ir do requisito até o
+código que o atende, nem voltar.
+
+É a **Matriz de Rastreabilidade de Requisitos** do PMBOK aplicada à ferramenta: cada
+requisito ligado ao entregável que o implementa, nos dois sentidos.
+
+Por isso o ID vai em dois lugares — **no nome da branch** e **no título do PR**. A
+redundância é proposital: se o nome da branch sair errado, o título do PR ainda liga o
+trabalho ao card.
+
+```
+feature/SCRUM-45-regra-24h        →  PR: "SCRUM-45 docs: registrar a regra das 24h"
+```
+
+O CI confere o nome da branch e **avisa quando falta o ID, sem reprovar o build**. Não
+reprova de propósito: uma correção urgente de infraestrutura pode não ter card — foi o caso
+de `fix/habilitar-actions-no-pcforge`, que destravou o GitHub Actions no repositório novo.
+
+As branches criadas antes desta regra ficam como estão. Renomear história não produz rastro
+nenhum, e os cards do módulo anterior nem existem neste Jira.
 
 ## Pull request
 
