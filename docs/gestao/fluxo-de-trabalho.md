@@ -32,7 +32,8 @@ Um card só vai para **Concluído** quando **todos** os itens abaixo valem:
 2. **O CI passou**: os cinco checks verdes (Backend Tests, Frontend Tests, E2E Playwright,
    Mobile Checks, GitGuardian). CI vermelho não vira Concluído, por mais simples que pareça
    a mudança.
-3. **A outra pessoa revisou o PR** e aprovou.
+3. **A outra pessoa aprovou o PR** — no botão, não só na conversa. Se ninguém revisar em
+   **24 horas**, quem abriu pode mergear sozinho (ver a regra abaixo).
 4. **A documentação acompanhou**, quando a mudança a afeta: decisão de arquitetura vira ADR
    em `docs/adr/`; armadilha nova entra no `CLAUDE.md`; diagrama entra pelo padrão de
    [docs/diagramas/README.md](../diagramas/README.md).
@@ -67,6 +68,20 @@ reprovar gasta o tempo da outra pessoa.
 
 Quem abre o PR não o mergeia sozinho quando a mudança é de código. Documentação pode seguir
 com um aviso no grupo.
+
+### A regra das 24 horas
+
+**Se ninguém revisar em 24 horas, quem abriu pode mergear.**
+
+Somos dois. Exigir revisão sem prazo significa que um PR aberto na sexta trava o trabalho da
+outra pessoa até segunda — e aí a regra passa a ser furada em silêncio, que é pior do que
+não ter regra. O prazo mantém o acordo vivo.
+
+**24 horas é limite, não meta.** O normal é revisar no mesmo dia; quem mergeia pelo prazo
+avisa no grupo, para a outra pessoa saber que entrou sem revisão.
+
+A aprovação vale **no botão do GitHub**, não na conversa. "Pode subir" dito no WhatsApp não
+deixa registro no histórico, e o histórico é o que mostra que houve revisão.
 
 ## Quando esta regra passou a valer
 
