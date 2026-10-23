@@ -5,6 +5,7 @@ import Produto from "../models/Produto";
 import Cliente from "../models/Cliente";
 import Endereco from "../models/Endereco";
 import AppError from "../utils/app-error";
+import { publicarPedidoCriado } from "./pedido-event.service";
 
 export class HttpError extends AppError {
   constructor(statusCode: number, message: string) {
@@ -162,6 +163,13 @@ export async function criarPedidoComItens(input: CriarPedidoComItensInput, allow
   const itensNormalizados = await normalizarItensPedido(input.itens);
 
   await validarEnderecoDoCliente(idEnderecoEntrega, idCliente, allowAdmin);
+  const cliente = await Cliente.findByPk(idCliente, {
+    attributes: ["id_cliente", "nome", "email"],
+  });
+
+  if (!cliente) {
+    throw new HttpError(404, "Cliente do pedido nao encontrado.");
+  }
 
   const valorTotal = itensNormalizados.reduce(
     (accumulator, item) => accumulator + item.quantidade * item.preco_unitario,
@@ -169,6 +177,7 @@ export async function criarPedidoComItens(input: CriarPedidoComItensInput, allow
   );
 
   const transaction = await sequelize.transaction();
+  let pedidoId: number;
 
   try {
     const novoPedido = await Pedido.create(
@@ -181,10 +190,11 @@ export async function criarPedidoComItens(input: CriarPedidoComItensInput, allow
       },
       { transaction }
     );
+    pedidoId = novoPedido.id_pedido;
 
     await ItemPedido.bulkCreate(
       itensNormalizados.map((item) => ({
-        id_pedido: novoPedido.id_pedido,
+        id_pedido: pedidoId,
         id_produto: item.id_produto,
         quantidade: item.quantidade,
         preco_unitario: item.preco_unitario,
@@ -205,16 +215,33 @@ export async function criarPedidoComItens(input: CriarPedidoComItensInput, allow
     }
 
     await transaction.commit();
-
-    const pedidoCriado = await carregarPedidoDetalhado(novoPedido.id_pedido);
-
-    if (!pedidoCriado) {
-      throw new HttpError(500, "Nao foi possivel carregar o pedido criado.");
-    }
-
-    return pedidoCriado;
   } catch (error) {
     await transaction.rollback();
     throw error;
   }
+
+  const pedidoCriado = await carregarPedidoDetalhado(pedidoId);
+
+  if (!pedidoCriado) {
+    throw new HttpError(500, "Nao foi possivel carregar o pedido criado.");
+  }
+
+  await publicarPedidoCriado({
+    pedido_id: pedidoId,
+    cliente: {
+      id_cliente: cliente.id_cliente,
+      nome: cliente.nome,
+      email: cliente.email,
+    },
+    itens: itensNormalizados.map((item) => ({
+      id_produto: item.id_produto,
+      nome: item.produto.nome,
+      quantidade: item.quantidade,
+      preco_unitario: item.preco_unitario,
+    })),
+    valor: Number(valorTotal.toFixed(2)),
+    criado_em: new Date().toISOString(),
+  });
+
+  return pedidoCriado;
 }

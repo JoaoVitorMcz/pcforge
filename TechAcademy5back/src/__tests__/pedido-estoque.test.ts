@@ -25,13 +25,22 @@ jest.mock("../models/Endereco", () => ({
   __esModule: true,
   default: { findByPk: jest.fn() },
 }));
-jest.mock("../models/Cliente", () => ({ __esModule: true, default: {} }));
+jest.mock("../models/Cliente", () => ({
+  __esModule: true,
+  default: { findByPk: jest.fn() },
+}));
+jest.mock("../services/pedido-event.service", () => ({
+  __esModule: true,
+  publicarPedidoCriado: jest.fn(),
+}));
 
 import sequelize from "../config/database";
 import Produto from "../models/Produto";
 import Pedido from "../models/Pedido";
 import ItemPedido from "../models/Itempedido";
 import Endereco from "../models/Endereco";
+import Cliente from "../models/Cliente";
+import { publicarPedidoCriado } from "../services/pedido-event.service";
 import { criarPedidoComItens, HttpError } from "../services/pedido.service";
 
 const ID_CLIENTE = 1;
@@ -60,9 +69,15 @@ beforeEach(() => {
     id_endereco: ID_ENDERECO,
     id_cliente: ID_CLIENTE,
   });
+  (Cliente.findByPk as jest.Mock).mockResolvedValue({
+    id_cliente: ID_CLIENTE,
+    nome: "Cliente de teste",
+    email: "cliente@example.com",
+  });
   (Pedido.create as jest.Mock).mockResolvedValue({ id_pedido: 99 });
   (ItemPedido.bulkCreate as jest.Mock).mockResolvedValue([]);
   (Pedido.findByPk as jest.Mock).mockResolvedValue({ id_pedido: 99, status: "pendente" });
+  (publicarPedidoCriado as jest.Mock).mockResolvedValue(undefined);
 });
 
 describe("criarPedidoComItens - regra de estoque", () => {
@@ -80,6 +95,28 @@ describe("criarPedidoComItens - regra de estoque", () => {
       expect.objectContaining({ by: 3, where: { id_produto: 5 } })
     );
     expect(transactionMock.commit).toHaveBeenCalled();
+    expect(publicarPedidoCriado).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pedido_id: 99,
+        cliente: {
+          id_cliente: ID_CLIENTE,
+          nome: "Cliente de teste",
+          email: "cliente@example.com",
+        },
+        itens: [
+          {
+            id_produto: 5,
+            nome: "RTX 4070",
+            quantidade: 3,
+            preco_unitario: 100,
+          },
+        ],
+        valor: 300,
+      })
+    );
+    expect(transactionMock.commit.mock.invocationCallOrder[0]).toBeLessThan(
+      (publicarPedidoCriado as jest.Mock).mock.invocationCallOrder[0]
+    );
   });
 
   it("2. baixa dentro da mesma transacao do pedido e dos itens", async () => {
@@ -145,6 +182,24 @@ describe("criarPedidoComItens - regra de estoque", () => {
 
     expect(transactionMock.rollback).toHaveBeenCalled();
     expect(transactionMock.commit).not.toHaveBeenCalled();
+    expect(publicarPedidoCriado).not.toHaveBeenCalled();
+  });
+
+  it("6b. preserva o pedido quando a publicação falha", async () => {
+    (Produto.findAll as jest.Mock).mockResolvedValue([produtoComEstoque(10)]);
+    const publishError = new HttpError(503, "Pedido 99 persistido; evento não enviado.");
+    (publicarPedidoCriado as jest.Mock).mockRejectedValue(publishError);
+
+    await expect(
+      criarPedidoComItens({
+        id_cliente: ID_CLIENTE,
+        id_endereco_entrega: ID_ENDERECO,
+        itens: [{ id_produto: 5, quantidade: 1 }],
+      })
+    ).rejects.toBe(publishError);
+
+    expect(transactionMock.commit).toHaveBeenCalled();
+    expect(transactionMock.rollback).not.toHaveBeenCalled();
   });
 
   it("6. congela o preco vigente no item do pedido", async () => {

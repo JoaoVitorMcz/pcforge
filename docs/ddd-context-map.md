@@ -99,8 +99,11 @@ Os padrões abaixo são os nomes que o DDD dá a cada tipo de relação.
 A Loja publica eventos sem saber quem escuta. Quem precisa, assina.
 
 É a relação mais fraca possível entre contextos, e é de propósito: a Loja não tem referência
-nenhuma ao Pagamentos no código. Se o serviço de Pagamentos estiver fora do ar, a Loja segue
-vendendo — o evento é publicado e se perde, mas o pedido existe.
+nenhuma ao Pagamentos no código. Os payloads versionados estão documentados em
+[Contratos de eventos da Loja](contratos-eventos.md). Como Redis Pub/Sub não retém mensagens,
+se a publicação falhar depois de o pedido ser persistido, a API retorna 503 com o identificador
+do pedido e registra a falha; pedido e status permanecem gravados. O cliente não deve repetir
+a operação cegamente. Outbox e reenvio automático estão fora do escopo do ADR-001.
 
 **Eventos publicados**, versionados para permitir evolução sem quebrar quem consome:
 

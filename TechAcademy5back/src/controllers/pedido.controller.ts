@@ -8,6 +8,7 @@ import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination
 import { criarPedidoComItens } from "../services/pedido.service";
 import sequelize from "../config/database";
 import AppError from "../utils/app-error";
+import { publicarPedidoStatusAlterado } from "../services/pedido-event.service";
 
 /**
  * Transicoes de status que o pedido aceita.
@@ -253,6 +254,15 @@ export const atualizarStatusPedido = async (req: Request, res: Response): Promis
 
     await pedido.update(dadosAtualizados);
 
+    if (status !== statusAtual) {
+      await publicarPedidoStatusAlterado({
+        pedido_id: id_pedido,
+        status_anterior: statusAtual,
+        status_atual: status,
+        alterado_em: new Date().toISOString(),
+      });
+    }
+
     res.status(200).json({ mensagem: "Status do pedido atualizado.", pedido });
 
 };
@@ -290,6 +300,7 @@ export const cancelarPedido = async (req: Request, res: Response): Promise<void>
     // devolucao falhasse depois do update, o produto ficaria com estoque preso
     // num pedido que nao existe mais. A guarda de statusNaoCancelaveis acima
     // impede cancelar duas vezes e devolver em dobro.
+    const statusAnterior = pedido.status ?? "pendente";
     const transaction = await sequelize.transaction();
 
     try {
@@ -309,6 +320,13 @@ export const cancelarPedido = async (req: Request, res: Response): Promise<void>
       await transaction.rollback();
       throw erroCancelamento;
     }
+
+    await publicarPedidoStatusAlterado({
+      pedido_id: id_pedido,
+      status_anterior: statusAnterior,
+      status_atual: "cancelado",
+      alterado_em: new Date().toISOString(),
+    });
 
     res.status(200).json({ mensagem: "Pedido cancelado com sucesso." });
 
