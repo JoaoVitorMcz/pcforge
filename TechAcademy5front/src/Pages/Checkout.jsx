@@ -10,6 +10,33 @@ const initialAddressForm = {
   numero: "", complemento: "", bairro: "", cidade: "", estado: "", cep: "",
 };
 
+async function solicitarPreferencia(pedidoId, frontendUrl) {
+  const maxTentativas = 4;
+
+  for (let tentativa = 0; tentativa < maxTentativas; tentativa += 1) {
+    try {
+      return await sendJson(
+        `/pagamentos/mercado-pago/pedido/${pedidoId}/preference`,
+        "POST",
+        { frontend_url: frontendUrl }
+      );
+    } catch (error) {
+      const podeTentarNovamente =
+        error.status === 409 &&
+        error.codigo === "PEDIDO_AINDA_NAO_RECEBIDO" &&
+        tentativa < maxTentativas - 1;
+
+      if (!podeTentarNovamente) {
+        throw error;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 250 * (tentativa + 1)));
+    }
+  }
+
+  throw new Error("Nao foi possivel iniciar o pagamento.");
+}
+
 function formatCurrency(value) {
   return Number(value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
@@ -173,10 +200,9 @@ function Checkout() {
       const pedidoId = pedidoResponse?.pedido?.id_pedido;
       if (!pedidoId) throw new Error("Nao foi possivel criar o pedido.");
 
-      const pagamentoResponse = await sendJson(
-        `/pagamentos/mercado-pago/pedido/${pedidoId}/preference`,
-        "POST",
-        { frontend_url: window.location.origin }
+      const pagamentoResponse = await solicitarPreferencia(
+        pedidoId,
+        window.location.origin
       );
 
       const initPoint = pagamentoResponse?.init_point || pagamentoResponse?.sandbox_init_point;
