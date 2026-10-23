@@ -35,6 +35,38 @@ jobs:
         working-directory: TechAcademy5back
         run: npm test -- --runInBand
 
+  payments-tests:
+    name: Payments Service
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [22.x]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+          cache-dependency-path: TechAcademy5payments/package-lock.json
+
+      - name: Install payments dependencies
+        working-directory: TechAcademy5payments
+        run: npm ci
+
+      - name: Build payments service
+        working-directory: TechAcademy5payments
+        run: npm run build
+
+      - name: Lint payments service
+        working-directory: TechAcademy5payments
+        run: npm run lint
+
+      - name: Run payments tests
+        working-directory: TechAcademy5payments
+        run: npm test
+
   frontend-tests:
     name: Frontend Tests
     runs-on: ubuntu-latest

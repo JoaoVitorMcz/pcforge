@@ -111,12 +111,17 @@ a operação cegamente. Outbox e reenvio automático estão fora do escopo do AD
 |---|---|---|
 | `pedido.criado.v1` | Pedido confirmado na Loja | Pagamentos, Notificações |
 | `pedido.status-alterado.v1` | Mudança de status | Notificações |
-| `pagamento.aprovado.v1` | Mercado Pago aprova | **Loja**, Notificações |
+| `pagamento.aprovado.v1` | Pagamentos confirma a cobrança | **Loja**, Notificações |
 
 Note que a Loja é publicadora **e** assinante: ela publica `pedido.criado` e consome
 `pagamento.aprovado`. Esse ciclo é o que torna a confirmação de pagamento assíncrona, e é
 também a razão de a SCRUM-23 ter sido dividida — publicar não depende de ninguém, consumir
 depende do serviço de Pagamentos existir.
+
+O serviço de Pagamentos mantém a tabela `pagamentos` no banco próprio `pcforge_pagamentos`.
+Ele consome `pedido.criado.v1` para manter uma cópia local e nunca consulta o banco da Loja.
+Se o evento ainda não tiver sido consumido quando o checkout for solicitado, responde HTTP
+409 para que o cliente tente novamente.
 
 ### Pagamentos → Mercado Pago: *Anti-Corruption Layer*
 
