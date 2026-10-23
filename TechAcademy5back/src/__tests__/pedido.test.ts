@@ -49,6 +49,11 @@ jest.mock("../services/pedido.service", () => {
     criarPedidoComItens: jest.fn(),
   };
 });
+jest.mock("../services/pedido-event.service", () => ({
+  __esModule: true,
+  publicarPedidoCriado: jest.fn(),
+  publicarPedidoStatusAlterado: jest.fn(),
+}));
 
 import Pedido from "../models/Pedido";
 import ItemPedido from "../models/Itempedido";
@@ -62,6 +67,7 @@ import {
   listarPedidos,
 } from "../controllers/pedido.controller";
 import { criarPedidoComItens, HttpError } from "../services/pedido.service";
+import { publicarPedidoStatusAlterado } from "../services/pedido-event.service";
 
 let consoleErrorSpy: jest.SpyInstance;
 
@@ -86,6 +92,7 @@ const mockResponse = (): Partial<Response> => {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  (publicarPedidoStatusAlterado as jest.Mock).mockResolvedValue(undefined);
   consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => undefined);
 });
 
@@ -219,6 +226,13 @@ describe("pedido.controller", () => {
     await atualizarStatusPedido(req as Request, res as Response);
 
     expect(pedidoMock.update).toHaveBeenCalled();
+    expect(publicarPedidoStatusAlterado).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pedido_id: 1,
+        status_anterior: "pendente",
+        status_atual: "pago",
+      })
+    );
     expect(res.status).toHaveBeenCalledWith(200);
   });
 
@@ -263,6 +277,39 @@ describe("pedido.controller", () => {
 
     expect(res.status).toHaveBeenCalledWith(200);
     expect(pedidoMock.update).toHaveBeenCalled();
+    expect(publicarPedidoStatusAlterado).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pedido_id: 1,
+        status_anterior: "pendente",
+        status_atual: "pago",
+      })
+    );
+  });
+
+  it("7c. expõe falha ao publicar sem desfazer o status persistido", async () => {
+    const pedidoMock = {
+      id_pedido: 1,
+      status: "pendente",
+      update: jest.fn().mockResolvedValue(true),
+    };
+    (Pedido.findByPk as jest.Mock).mockResolvedValue(pedidoMock);
+    const publishError = new HttpError(503, "Pedido 1 foi persistido, evento não entregue.");
+    (publicarPedidoStatusAlterado as jest.Mock).mockRejectedValueOnce(publishError);
+
+    const req = mockRequest(
+      { status: "pago" },
+      { id: "1" },
+      {},
+      { id_cliente: 1, admin: true, email: "admin@teste.com" }
+    );
+    const res = mockResponse();
+
+    await expect(atualizarStatusPedido(req as Request, res as Response)).rejects.toBe(
+      publishError
+    );
+
+    expect(pedidoMock.update).toHaveBeenCalled();
+    expect(res.status).not.toHaveBeenCalled();
   });
 
   it("8. cancela pedido pendente do proprio cliente e devolve o estoque", async () => {
@@ -293,6 +340,16 @@ describe("pedido.controller", () => {
       expect.objectContaining({ transaction: transactionMock })
     );
     expect(transactionMock.commit).toHaveBeenCalled();
+    expect(publicarPedidoStatusAlterado).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pedido_id: 1,
+        status_anterior: "pendente",
+        status_atual: "cancelado",
+      })
+    );
+    expect(transactionMock.commit.mock.invocationCallOrder[0]).toBeLessThan(
+      (publicarPedidoStatusAlterado as jest.Mock).mock.invocationCallOrder[0]
+    );
     expect(res.status).toHaveBeenCalledWith(200);
   });
 });

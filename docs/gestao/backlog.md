@@ -46,7 +46,7 @@ Acima de 8, o card é grande demais e deve ser quebrado.
 |---|---|---|---|
 | SCRUM-41 | Extrair Pagamentos com banco próprio | **8** | Henrique |
 | SCRUM-24 | Serviço de Notificações com banco próprio | 5 | Henrique |
-| SCRUM-23 | Loja publica eventos e consome `pagamento.aprovado` | 5 | Henrique |
+| SCRUM-23 | Loja publica eventos de pedido | 5 | Henrique |
 | SCRUM-42 | Nginx como gateway e mobile pelo gateway | 5 | Henrique |
 | SCRUM-26 | Logs estruturados com id por requisição | 3 | Henrique |
 | SCRUM-28 | Diagramas C4 (Contexto e Containers) | 3 | João |
@@ -57,8 +57,8 @@ Acima de 8, o card é grande demais e deve ser quebrado.
 **SCRUM-41 é o card mais arriscado do projeto inteiro.** São 8 pontos porque não é só mover
 código: cria serviço, cria banco, inverte o fluxo de confirmação de pagamento e obriga a
 mexer na tela de retorno do checkout — detalhado no
-[ADR-002](../adr/002-corte-microsservicos.md). Se algum card desta sprint escorregar, é
-este, e ele bloqueia a SCRUM-23.
+[ADR-002](../adr/002-corte-microsservicos.md). A SCRUM-23 publica `pedido.criado.v1`, que
+é a entrada de dados necessária para a SCRUM-41 persistir os pedidos recebidos.
 
 A carga do Henrique nesta sprint é 28 dos 36 pontos. Vale observar na metade da sprint.
 
