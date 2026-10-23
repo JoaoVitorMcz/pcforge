@@ -1,12 +1,12 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { FiAlertCircle, FiCheckCircle, FiClock, FiRefreshCw } from "react-icons/fi";
-import { sendJson } from "../config/api";
+import { fetchJson, sendJson } from "../config/api";
 import { useCarrinho } from "../context/CarrinhoContext";
 import "./Checkout.css";
 
 function resolveVisualState(paymentStatus, pedidoStatus) {
-  if (pedidoStatus === "pago" || paymentStatus === "approved") {
+  if (pedidoStatus === "pago") {
     return {
       icon: FiCheckCircle,
       className: "checkout-result-success",
@@ -16,13 +16,21 @@ function resolveVisualState(paymentStatus, pedidoStatus) {
     };
   }
 
-  if (["pending", "in_process", "in_mediation"].includes(paymentStatus)) {
+  if (
+    paymentStatus === "approved" ||
+    ["pending", "in_process", "in_mediation"].includes(paymentStatus)
+  ) {
     return {
       icon: FiClock,
       className: "checkout-result-pending",
-      title: "Pagamento em analise",
+      title:
+        paymentStatus === "approved"
+          ? "Pagamento aprovado; atualizando pedido"
+          : "Pagamento em analise",
       description:
-        "O Mercado Pago ainda esta processando o pagamento. Voce pode acompanhar novamente em alguns instantes.",
+        paymentStatus === "approved"
+          ? "O pagamento foi aprovado e estamos atualizando seu pedido. Esta etapa pode levar alguns instantes."
+          : "O Mercado Pago ainda esta processando o pagamento. Voce pode acompanhar novamente em alguns instantes.",
     };
   }
 
@@ -35,6 +43,10 @@ function resolveVisualState(paymentStatus, pedidoStatus) {
   };
 }
 
+function aguardar(ms) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
 function CheckoutRetorno() {
   const [searchParams] = useSearchParams();
   const { limparCarrinho } = useCarrinho();
@@ -42,6 +54,8 @@ function CheckoutRetorno() {
   const [error, setError] = useState("");
   const [retrying, setRetrying] = useState(false);
   const [result, setResult] = useState(null);
+  const limparCarrinhoRef = useRef(limparCarrinho);
+  limparCarrinhoRef.current = limparCarrinho;
 
   const pedidoId = useMemo(
     () =>
@@ -65,7 +79,28 @@ function CheckoutRetorno() {
     [searchParams]
   );
 
+  const atualizarResultado = useCallback((response) => {
+    setResult(response);
+
+    if (response?.pedido?.status === "pago") {
+      limparCarrinhoRef.current();
+      window.localStorage.removeItem("checkout_pedido_aberto");
+    }
+  }, []);
+
+  const confirmarPagamento = useCallback(
+    () =>
+      sendJson("/pagamentos/mercado-pago/confirmar", "POST", {
+        pedido_id: Number(pedidoId),
+        payment_id: paymentId ? Number(paymentId) : null,
+        status,
+      }),
+    [paymentId, pedidoId, status]
+  );
+
   useEffect(() => {
+    let cancelled = false;
+
     const confirmarRetorno = async () => {
       if (!pedidoId) {
         setError("Nao foi possivel identificar o pedido retornado pelo Mercado Pago.");
@@ -74,28 +109,93 @@ function CheckoutRetorno() {
       }
 
       try {
-        const response = await sendJson("/pagamentos/mercado-pago/confirmar", "POST", {
-          pedido_id: Number(pedidoId),
-          payment_id: paymentId ? Number(paymentId) : null,
-          status,
-        });
+        let response = await confirmarPagamento();
+        if (cancelled) return;
+        atualizarResultado(response);
+        setLoading(false);
 
-        setResult(response);
+        for (
+          let tentativa = 0;
+          tentativa < 5 &&
+          response?.paymentStatus === "approved" &&
+          response?.pedido?.status !== "pago";
+          tentativa += 1
+        ) {
+          await aguardar(1500);
+          if (cancelled) return;
 
-        if (response?.pedido?.status === "pago" || response?.paymentStatus === "approved") {
-          limparCarrinho();
-          window.localStorage.removeItem("checkout_pedido_aberto");
+          try {
+            const pedidoAtualizado = await fetchJson(`/pedidos/${pedidoId}`);
+            if (cancelled) return;
+            response = {
+              ...response,
+              pedido: pedidoAtualizado,
+            };
+            atualizarResultado(response);
+          } catch (erro) {
+            console.error("Erro ao consultar o pedido durante a sincronizacao:", erro);
+            setError(erro.message || "Nao foi possivel consultar o pedido.");
+            break;
+          }
         }
       } catch (err) {
+        if (cancelled) return;
+
+        if (err.status === 503 && status === "approved") {
+          try {
+            const pedidoAtualizado = await fetchJson(`/pedidos/${pedidoId}`);
+            if (cancelled) return;
+            atualizarResultado({ paymentStatus: status, pedido: pedidoAtualizado });
+          } catch (erro) {
+            if (cancelled) return;
+            console.error("Erro ao carregar o pedido durante a sincronizacao:", erro);
+            setError(erro.message || "Nao foi possivel carregar o pedido.");
+          }
+          return;
+        }
+
         console.error("Erro ao confirmar retorno do Mercado Pago:", err);
         setError(err.message || "Nao foi possivel validar o status do pagamento.");
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
     void confirmarRetorno();
-  }, [limparCarrinho, paymentId, pedidoId, status]);
+    return () => {
+      cancelled = true;
+    };
+  }, [atualizarResultado, confirmarPagamento, paymentId, pedidoId, status]);
+
+  const handleVerifyPayment = async () => {
+    try {
+      setRetrying(true);
+      setError("");
+      let response = await confirmarPagamento();
+      atualizarResultado(response);
+
+      for (
+        let tentativa = 0;
+        tentativa < 5 &&
+        response?.paymentStatus === "approved" &&
+        response?.pedido?.status !== "pago";
+        tentativa += 1
+      ) {
+        await aguardar(1500);
+        const pedidoAtualizado = await fetchJson(`/pedidos/${pedidoId}`);
+        response = {
+          ...response,
+          pedido: pedidoAtualizado,
+        };
+        atualizarResultado(response);
+      }
+    } catch (err) {
+      console.error("Erro ao verificar novamente o pagamento:", err);
+      setError(err.message || "Nao foi possivel verificar o status do pagamento.");
+    } finally {
+      setRetrying(false);
+    }
+  };
 
   const handleRetryPayment = async () => {
     if (!pedidoId) {
@@ -164,7 +264,21 @@ function CheckoutRetorno() {
           {error && <p className="checkout-feedback checkout-feedback-error">{error}</p>}
 
           <div className="checkout-result-actions">
-            {pedidoStatus !== "pago" && (
+            {pedidoStatus !== "pago" &&
+              ["approved", "pending", "in_process", "in_mediation"].includes(paymentStatus) && (
+                <button
+                  type="button"
+                  className="checkout-primary-button"
+                  onClick={handleVerifyPayment}
+                  disabled={retrying}
+                >
+                  <FiRefreshCw aria-hidden="true" />
+                  {retrying ? "Verificando..." : "Verificar pagamento"}
+                </button>
+              )}
+
+            {pedidoStatus !== "pago" &&
+              !["approved", "pending", "in_process", "in_mediation"].includes(paymentStatus) && (
               <button
                 type="button"
                 className="checkout-primary-button"
@@ -174,7 +288,7 @@ function CheckoutRetorno() {
                 <FiRefreshCw aria-hidden="true" />
                 {retrying ? "Gerando novo link..." : "Tentar pagamento novamente"}
               </button>
-            )}
+              )}
 
             <Link to="/pecas" className="checkout-ghost-link">
               Continuar comprando

@@ -7,8 +7,14 @@ const redisClient = createClient({
   },
 });
 
+export const redisSubscriberClient = redisClient.duplicate();
+
 redisClient.on("error", (error) => {
   console.error("Erro na conexão com Redis:", error);
+});
+
+redisSubscriberClient.on("error", (error) => {
+  console.error("Erro na conexão do consumidor de eventos com Redis:", error);
 });
 
 redisClient.on("ready", () => {
