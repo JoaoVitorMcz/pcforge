@@ -7,7 +7,8 @@ decisões foram tomadas assim.
 > Fase D, listados abaixo — este aqui só rastreia o andamento. Não marque aqueles itens da
 > rubrica como prontos por causa deste documento.
 
-Última atualização: catálogo, imagens, suporte, CEP e sessão expirada, com a revisão desse trabalho.
+Última atualização: início da implementação da SCRUM-46 na branch
+`feature/SCRUM-46-loja-consome-pagamento-aprovado`.
 
 ### Back-end avançado — Sprint 1 em andamento
 
@@ -22,8 +23,18 @@ que padroniza a resposta `{ erro: { codigo, mensagem } }` e não expõe detalhes
 DTOs validam as entradas de escrita de produtos, clientes e pedidos; as respostas de
 cliente passam por uma whitelist que exclui hash de senha e campos internos. Os testes
 integração cobrem miss → hit → invalidação após atualização, além da validação pelo
-middleware e do DTO de saída. A suíte do backend passa com 137 testes; eventos,
-microsserviços e Nginx ficam para a Sprint 2.
+middleware e do DTO de saída. A suíte do backend passa com 146 testes. A Sprint 2 está em
+andamento; a extração de microsserviços e o Nginx continuam pendentes.
+
+### Sprint 2 — consumo de pagamento aprovado
+
+A SCRUM-46 está sendo implementada na Loja atual: a confirmação do Mercado Pago publica
+`pagamento.aprovado.v1` no Redis e um consumidor idempotente marca como pago somente um
+pedido ainda pendente. O retorno do checkout mostra a aprovação como “atualizando pedido”,
+consulta o pedido por alguns segundos e só então confirma o sucesso e limpa o carrinho.
+Esta mudança ainda não extrai o Serviço de Pagamentos (SCRUM-41) nem implementa o produtor
+de `pedido.criado` (SCRUM-23). Os testes unitários e E2E mockados passam; a validação com
+Redis/MySQL no Docker e a integração do fluxo completo ficam pendentes.
 
 ## Placar da rubrica
 

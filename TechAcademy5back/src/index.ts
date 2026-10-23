@@ -4,6 +4,7 @@ import cors from "cors";
 import path from "path";
 import sequelize from "./config/database/index";
 import { conectarRedis } from "./config/redis";
+import { iniciarConsumidorPagamentoAprovado } from "./events/pagamento-aprovado.subscriber";
 // Registra as quatro tabelas do RBAC e as duas relacoes N:N no sequelize.sync().
 // Sem este import, o include de roles no login nao encontra a associacao.
 import "./models/rbac.associations";
@@ -64,6 +65,7 @@ export async function startServer() {
   try {
     await sequelize.sync();
     await conectarRedis();
+    await iniciarConsumidorPagamentoAprovado();
     return app.listen(PORT, () => {
       console.log(`Servidor rodando na porta ${PORT}`);
     });

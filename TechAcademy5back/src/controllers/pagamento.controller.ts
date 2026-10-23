@@ -1,5 +1,4 @@
 import { Request, Response } from "express";
-import Pedido from "../models/Pedido";
 import AppError from "../utils/app-error";
 import {
   HttpError,
@@ -10,6 +9,7 @@ import {
   buscarPagamentoMercadoPago,
   criarPreferenciaMercadoPago,
 } from "../services/mercadoPago.service";
+import { publicarPagamentoAprovado } from "../services/pagamento-event.service";
 
 function getAuthenticatedClienteId(req: Request) {
   const idCliente = req.cliente?.id_cliente;
@@ -158,24 +158,24 @@ export const confirmarPagamentoMercadoPago = async (
       }
     }
 
-    let pedidoAtualizado: Pedido = pedido;
+    const pagamentoAprovado = paymentId && paymentStatus === "approved";
 
-    if (paymentId && paymentStatus === "approved" && pedido.status !== "pago") {
-      await pedido.update({
-        status: "pago",
-        data_pagamento: new Date(),
+    if (pagamentoAprovado && pedido.status !== "pago") {
+      await publicarPagamentoAprovado({
+        pedidoId: idPedido,
+        paymentId,
+        aprovadoEm: new Date().toISOString(),
       });
-
-      pedidoAtualizado =
-        (await carregarPedidoDetalhadoDoCliente(idPedido, idCliente, isAdmin)) || pedido;
     }
 
-    res.status(200).json({
+    const respostaPendente = pagamentoAprovado && pedido.status !== "pago";
+    res.status(respostaPendente ? 202 : 200).json({
       mensagem: "Status do pagamento consultado com sucesso.",
       paymentStatus,
       paymentId,
       verifiedWithMercadoPago: Boolean(paymentDetails),
-      pedido: pedidoAtualizado,
+      sincronizacao: respostaPendente ? "processando" : "concluida",
+      pedido,
     });
 
 };
