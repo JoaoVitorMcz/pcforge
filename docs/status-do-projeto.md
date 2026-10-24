@@ -7,8 +7,8 @@ decisões foram tomadas assim.
 > Fase D, listados abaixo — este aqui só rastreia o andamento. Não marque aqueles itens da
 > rubrica como prontos por causa deste documento.
 
-Última atualização: início da implementação da SCRUM-46 na branch
-`feature/SCRUM-46-loja-consome-pagamento-aprovado`.
+Última atualização: implementação da SCRUM-41 na branch
+`feature/SCRUM-41-extrair-servico-pagamentos`.
 
 ### Back-end avançado — Sprint 1 em andamento
 
@@ -23,15 +23,15 @@ que padroniza a resposta `{ erro: { codigo, mensagem } }` e não expõe detalhes
 DTOs validam as entradas de escrita de produtos, clientes e pedidos; as respostas de
 cliente passam por uma whitelist que exclui hash de senha e campos internos. Os testes
 integração cobrem miss → hit → invalidação após atualização, além da validação pelo
-middleware e do DTO de saída. A suíte do backend passa com 146 testes. A Sprint 2 está em
-andamento; Pagamentos e a atualização do gateway permanecem em branches próprias.
+middleware e do DTO de saída. A suíte do backend passa com 149 testes. A Sprint 2 está em
+andamento; a atualização do gateway permanece em uma branch própria.
 
 ### Sprint 2 — eventos e microsserviços
 
 A SCRUM-23 e a SCRUM-46 foram mergeadas em `dev`: a Loja publica eventos de pedido e consome
-`pagamento.aprovado.v1` de forma idempotente. A SCRUM-41 está em uma branch própria: o serviço
-de Pagamentos tem banco próprio, consome `pedido.criado.v1`, valida JWT localmente, gera
-preferências e publica aprovações verificadas no Mercado Pago.
+`pagamento.aprovado.v1` de forma idempotente. A SCRUM-41 também foi integrada em `dev`: o
+serviço de Pagamentos tem banco próprio, consome `pedido.criado.v1`, valida JWT localmente,
+gera preferências e publica aprovações verificadas no Mercado Pago.
 
 A SCRUM-24 adiciona nesta branch o serviço de Notificações, com banco próprio; ele consome
 `pedido.criado.v1`, `pedido.status-alterado.v1` e `pagamento.aprovado.v1`, registra payload e

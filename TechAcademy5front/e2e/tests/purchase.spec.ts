@@ -35,7 +35,22 @@ test('fluxo de compra: checkout cria pedido e redireciona para pagamento', async
   });
 
   let pagamentoInitPoint: string | null = null;
+  let tentativasPagamento = 0;
   await page.route('**/pagamentos/mercado-pago/pedido/*/preference', (route) => {
+    tentativasPagamento += 1;
+
+    if (tentativasPagamento === 1) {
+      route.fulfill({
+        status: 409,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          codigo: 'PEDIDO_AINDA_NAO_RECEBIDO',
+          mensagem: 'Pedido ainda nao disponivel; tente novamente.',
+        }),
+      });
+      return;
+    }
+
     pagamentoInitPoint = 'https://mp.example/checkout/999';
     route.fulfill({
       status: 200,
@@ -54,4 +69,5 @@ test('fluxo de compra: checkout cria pedido e redireciona para pagamento', async
 
   await expect.poll(() => Promise.resolve(pagamentoInitPoint), { timeout: 5000 }).toBe('https://mp.example/checkout/999');
   expect(pedidoCriado).toBeTruthy();
+  expect(tentativasPagamento).toBe(2);
 });

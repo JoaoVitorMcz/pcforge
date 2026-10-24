@@ -34,6 +34,7 @@ certs/*.pfx
 TechAcademy5back/dist/
 TechAcademy5back/coverage/
 TechAcademy5notifications/dist/
+TechAcademy5payments/dist/
 
 # frontend test artifacts
 TechAcademy5front/test-results/

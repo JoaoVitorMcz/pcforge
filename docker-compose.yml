@@ -49,6 +49,23 @@ services:
       timeout: 5s
       retries: 5
 
+  pagamentos-db:
+    image: mysql:8.0
+    container_name: pcforge_pagamentos_db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${PAYMENTS_DB_ROOT_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: ${PAYMENTS_DB_NAME:-pcforge_pagamentos}
+    volumes:
+      - pagamentos_data:/var/lib/mysql
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${PAYMENTS_DB_ROOT_PASSWORD:-rootpassword}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   backend:
     build:
       context: ./TechAcademy5back
@@ -63,7 +80,6 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       NODE_ENV: ${NODE_ENV}
       JWT_SECRET: ${JWT_SECRET}
-      MERCADO_PAGO_ACCESS_TOKEN: ${MERCADO_PAGO_ACCESS_TOKEN}
       FRONTEND_URL: ${FRONTEND_URL}
       CORS_ORIGINS: ${CORS_ORIGINS}
       LEGACY_IMAGES_DIR: /app/catalogo-imagens
@@ -113,6 +129,8 @@ services:
       - PORT=3001
       - HOST=0.0.0.0
       - DANGEROUSLY_DISABLE_HOST_CHECK=true
+      - API_PROXY_TARGET=http://backend:3000
+      - PAYMENTS_PROXY_TARGET=http://payments:3002
       - REACT_APP_API_URL=
       - REACT_APP_EMAILJS_SERVICE_ID=${REACT_APP_EMAILJS_SERVICE_ID}
       - REACT_APP_EMAILJS_TEMPLATE_ID=${REACT_APP_EMAILJS_TEMPLATE_ID}
@@ -124,6 +142,37 @@ services:
     networks:
       - app-network
 
+  payments:
+    build:
+      context: ./TechAcademy5payments
+      dockerfile: Dockerfile
+    container_name: pcforge_payments
+    restart: unless-stopped
+    environment:
+      PORT: 3002
+      DB_HOST: pagamentos-db
+      DB_PORT: 3306
+      DB_NAME: ${PAYMENTS_DB_NAME:-pcforge_pagamentos}
+      DB_USER: root
+      DB_PASSWORD: ${PAYMENTS_DB_ROOT_PASSWORD:-rootpassword}
+      REDIS_URL: ${REDIS_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      MERCADO_PAGO_ACCESS_TOKEN: ${MERCADO_PAGO_ACCESS_TOKEN}
+      FRONTEND_URL: ${FRONTEND_URL}
+      CORS_ORIGINS: ${CORS_ORIGINS}
+    depends_on:
+      pagamentos-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3002/health').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   nginx:
     image: nginx:stable-alpine
     container_name: pcforge_nginx
@@ -132,8 +181,12 @@ services:
       - "80:80"
       - "443:443"
     depends_on:
-      - frontend
-      - backend
+      frontend:
+        condition: service_started
+      backend:
+        condition: service_started
+      payments:
+        condition: service_healthy
     networks:
       - app-network
     volumes:
@@ -143,6 +196,7 @@ services:
 volumes:
   mysql_data:
   notificacoes_data:
+  pagamentos_data:
 
 networks:
   app-network:

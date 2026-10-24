@@ -13,7 +13,11 @@ E-commerce full stack de componentes de PC, desenvolvido como projeto acadêmico
 - Sequelize ORM + MySQL 8
 - JWT para autenticação, bcrypt para hash de senhas
 - Multer para upload de imagens
-- SDK do Mercado Pago (Checkout Pro)
+
+**Serviço de Pagamentos**
+- Node.js + Express 5 (TypeScript)
+- MySQL 8 próprio (`pcforge_pagamentos`)
+- Integração com Mercado Pago Checkout Pro
 
 **Front-end**
 - React 19 + TypeScript
@@ -21,7 +25,7 @@ E-commerce full stack de componentes de PC, desenvolvido como projeto acadêmico
 - React Icons
 
 **Infraestrutura e qualidade**
-- Docker Compose (MySQL, Redis, serviços de back-end, front-end e Nginx)
+- Docker Compose (Loja, Pagamentos, bancos MySQL separados, Redis, front-end e Nginx)
 - Microsserviço de Notificações com histórico de eventos em banco próprio
 - Nginx como proxy reverso HTTPS com cabeçalhos de segurança
 - Jest + Supertest (testes de integração da API)
@@ -61,22 +65,13 @@ E-commerce full stack de componentes de PC, desenvolvido como projeto acadêmico
 ## Arquitetura
 
 ```
-                   https://pcforge.local
-                            │
-                    ┌───────▼────────┐
-                    │     Nginx      │  :443
-                    │  proxy reverso │  redireciona :80 → :443
-                    └───┬────────┬───┘
-                /api    │        │    /
-             /uploads   │        │
-                  ┌─────▼───┐  ┌─▼──────────┐
-                  │ Backend │  │  Frontend  │
-                  │ Express │  │   React    │
-                  └────┬────┘  └────────────┘
-                       │
-                  ┌────▼────┐
-                  │  MySQL  │  volume mysql_data
-                  └─────────┘
+https://pcforge.local
+└── Nginx (HTTPS)
+    ├── /pagamentos/* -> Serviço de Pagamentos -> MySQL pcforge_pagamentos
+    ├── APIs da Loja  -> Backend Loja           -> MySQL TechAcademy5
+    └── /             -> Frontend React
+
+Loja <── Redis Pub/Sub ──> Pagamentos
 ```
 
 O Redis também transporta eventos para o serviço de Notificações, que mantém o histórico no
@@ -89,7 +84,7 @@ src/
 ├── config/        conexão com o banco, JWT, middlewares de auth, upload
 ├── models/        entidades Sequelize (Cliente, Produto, Categoria, Pedido, ItemPedido, Endereco)
 ├── controllers/   tratamento de requisição e resposta
-├── services/      regras de negócio (pedidos, integração Mercado Pago)
+├── services/      regras de negócio da Loja
 ├── routes/        definição de endpoints e middlewares
 ├── utils/         validações e paginação
 └── __tests__/     testes de integração
@@ -139,6 +134,7 @@ MERCADO_PAGO_ACCESS_TOKEN=TEST-xxxxxxxx
 ```
 
 Sem o token, o restante da aplicação funciona normalmente.
+O token é carregado somente pelo serviço `payments`; a Loja não acessa o Mercado Pago.
 
 ---
 
@@ -163,6 +159,17 @@ npm run test:e2e
 ```
 
 O workflow de CI executa as suítes de back-end e front-end automaticamente a cada push e pull request nas branches `main` e `dev`.
+O serviço de Pagamentos também passa por build, lint e testes no CI.
+
+**Serviço de Pagamentos**
+
+```bash
+cd TechAcademy5payments
+npm ci
+npm run build
+npm run lint
+npm test
+```
 
 ---
 
@@ -198,8 +205,8 @@ Base: `https://pcforge.local/api`
 | GET | `/itens-pedido/pedido/:id_pedido` | autenticado | Itens do pedido |
 | POST · PATCH · DELETE | `/itens-pedido` | autenticado | Gerencia itens |
 | POST | `/upload` | admin | Upload de imagem |
-| POST | `/pagamentos/mercado-pago/checkout` | autenticado | Inicia checkout |
-| POST | `/pagamentos/mercado-pago/confirmar` | autenticado | Confirma pagamento |
+| POST | `/pagamentos/mercado-pago/pedido/:id/preference` | dono ou admin | Gera preferência para pedido recebido por evento |
+| POST | `/pagamentos/mercado-pago/confirmar` | dono ou admin | Confirma no Mercado Pago e publica aprovação |
 
 Rotas autenticadas exigem o cabeçalho `Authorization: Bearer <token>`.
 

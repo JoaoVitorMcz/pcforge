@@ -39,21 +39,25 @@ export function buildAssetUrl(path) {
   return `${CONFIGURED_API_BASE_URL}${normalizedPath}`;
 }
 
-async function mensagemErro(response) {
+async function criarErroHttp(response) {
   const corpo = await response.text().catch(() => "");
-  if (!corpo) return `Erro HTTP ${response.status}`;
+  let dados;
 
   try {
-    const dados = JSON.parse(corpo);
-    return dados?.erro?.mensagem ?? dados?.mensagem ?? dados?.error ?? corpo;
+    dados = JSON.parse(corpo);
   } catch {
-    return corpo;
+    dados = null;
   }
-}
 
-async function criarErroHttp(response) {
-  const erro = new Error(await mensagemErro(response));
+  const mensagem =
+    dados?.erro?.mensagem ??
+    dados?.mensagem ??
+    dados?.error ??
+    (corpo || undefined) ??
+    `Erro HTTP ${response.status}`;
+  const erro = new Error(mensagem);
   erro.status = response.status;
+  erro.codigo = dados?.codigo;
   return erro;
 }
 

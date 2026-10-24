@@ -17,7 +17,6 @@ import enderecoRoutes from "./routes/endereco.routes";
 import pedidoRoutes from "./routes/pedido.routes";
 import itemPedidoRoutes from "./routes/itempedido.routes";
 import uploadRoutes from "./routes/upload.routes";
-import pagamentoRoutes from "./routes/pagamento.routes";
 import dashboardRoutes from "./routes/dashboard.routes";
 
 const app = express();
@@ -56,7 +55,6 @@ app.use("/enderecos", enderecoRoutes);
 app.use("/pedidos", pedidoRoutes);
 app.use("/itens-pedido", itemPedidoRoutes);
 app.use("/upload", uploadRoutes);
-app.use("/pagamentos", pagamentoRoutes);
 app.use("/admin", dashboardRoutes);
 
 app.use(errorMiddleware);
