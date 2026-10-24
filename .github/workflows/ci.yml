@@ -35,6 +35,38 @@ jobs:
         working-directory: TechAcademy5back
         run: npm test -- --runInBand
 
+  notifications-tests:
+    name: Notifications Service
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [22.x]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+          cache-dependency-path: TechAcademy5notifications/package-lock.json
+
+      - name: Install notifications dependencies
+        working-directory: TechAcademy5notifications
+        run: npm ci
+
+      - name: Build notifications service
+        working-directory: TechAcademy5notifications
+        run: npm run build
+
+      - name: Lint notifications service
+        working-directory: TechAcademy5notifications
+        run: npm run lint
+
+      - name: Run notifications tests
+        working-directory: TechAcademy5notifications
+        run: npm test
+
   frontend-tests:
     name: Frontend Tests
     runs-on: ubuntu-latest

@@ -24,17 +24,18 @@ DTOs validam as entradas de escrita de produtos, clientes e pedidos; as resposta
 cliente passam por uma whitelist que exclui hash de senha e campos internos. Os testes
 integração cobrem miss → hit → invalidação após atualização, além da validação pelo
 middleware e do DTO de saída. A suíte do backend passa com 146 testes. A Sprint 2 está em
-andamento; a extração de microsserviços e o Nginx continuam pendentes.
+andamento; Pagamentos e a atualização do gateway permanecem em branches próprias.
 
-### Sprint 2 — consumo de pagamento aprovado
+### Sprint 2 — eventos e microsserviços
 
-A SCRUM-46 está sendo implementada na Loja atual: a confirmação do Mercado Pago publica
-`pagamento.aprovado.v1` no Redis e um consumidor idempotente marca como pago somente um
-pedido ainda pendente. O retorno do checkout mostra a aprovação como “atualizando pedido”,
-consulta o pedido por alguns segundos e só então confirma o sucesso e limpa o carrinho.
-Esta mudança ainda não extrai o Serviço de Pagamentos (SCRUM-41) nem implementa o produtor
-de `pedido.criado` (SCRUM-23). Os testes unitários e E2E mockados passam; a validação com
-Redis/MySQL no Docker e a integração do fluxo completo ficam pendentes.
+A SCRUM-23 e a SCRUM-46 foram mergeadas em `dev`: a Loja publica eventos de pedido e consome
+`pagamento.aprovado.v1` de forma idempotente. A SCRUM-41 está em uma branch própria: o serviço
+de Pagamentos tem banco próprio, consome `pedido.criado.v1`, valida JWT localmente, gera
+preferências e publica aprovações verificadas no Mercado Pago.
+
+A SCRUM-24 adiciona nesta branch o serviço de Notificações, com banco próprio; ele consome
+`pedido.criado.v1`, `pedido.status-alterado.v1` e `pagamento.aprovado.v1`, registra payload e
+horário de recebimento e gera logs de confirmação sem expor o payload.
 
 ## Placar da rubrica
 

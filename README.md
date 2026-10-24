@@ -21,7 +21,8 @@ E-commerce full stack de componentes de PC, desenvolvido como projeto acadêmico
 - React Icons
 
 **Infraestrutura e qualidade**
-- Docker Compose (MySQL, back-end, front-end, Nginx)
+- Docker Compose (MySQL, Redis, serviços de back-end, front-end e Nginx)
+- Microsserviço de Notificações com histórico de eventos em banco próprio
 - Nginx como proxy reverso HTTPS com cabeçalhos de segurança
 - Jest + Supertest (testes de integração da API)
 - Playwright (testes end-to-end)
@@ -77,6 +78,9 @@ E-commerce full stack de componentes de PC, desenvolvido como projeto acadêmico
                   │  MySQL  │  volume mysql_data
                   └─────────┘
 ```
+
+O Redis também transporta eventos para o serviço de Notificações, que mantém o histórico no
+banco isolado `pcforge_notificacoes`.
 
 O back-end segue uma organização em camadas:
 
