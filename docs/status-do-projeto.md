@@ -21,20 +21,21 @@ registra as alternativas e os TTLs de 5 minutos para produtos e 30 minutos para 
 Os controllers encaminham erros de negócio e falhas inesperadas ao middleware central,
 que padroniza a resposta `{ erro: { codigo, mensagem } }` e não expõe detalhes internos.
 DTOs validam as entradas de escrita de produtos, clientes e pedidos; as respostas de
-cliente passam por uma whitelist que exclui hash de senha e campos internos. Os testes de
-integração cobrem miss → hit → invalidação após atualização, além da validação pelo middleware
-e do DTO de saída. A suíte atual da Loja passa com 149 testes.
+cliente passam por uma whitelist que exclui hash de senha e campos internos. Os testes
+integração cobrem miss → hit → invalidação após atualização, além da validação pelo
+middleware e do DTO de saída. A suíte do backend passa com 149 testes. A Sprint 2 está em
+andamento; a atualização do gateway permanece em uma branch própria.
 
-### Sprint 2 — eventos e extração de Pagamentos
+### Sprint 2 — eventos e microsserviços
 
 A SCRUM-23 e a SCRUM-46 foram mergeadas em `dev`: a Loja publica eventos de pedido e consome
-`pagamento.aprovado.v1` de forma idempotente. A SCRUM-41 está implementada na branch atual:
-o serviço de Pagamentos tem banco próprio, consome `pedido.criado.v1`, valida JWT localmente,
-gera preferências e publica aprovações verificadas no Mercado Pago. O código Mercado Pago foi
-removido da Loja; o checkout web tenta novamente quando o serviço ainda não recebeu o evento.
+`pagamento.aprovado.v1` de forma idempotente. A SCRUM-41 também foi integrada em `dev`: o
+serviço de Pagamentos tem banco próprio, consome `pedido.criado.v1`, valida JWT localmente,
+gera preferências e publica aprovações verificadas no Mercado Pago.
 
-As suítes unitárias, lint, build, Compose config e 30 testes E2E passam. Ainda não foi feita
-uma execução integrada com containers nem uma transação externa no Mercado Pago nesta branch.
+A SCRUM-24 adiciona nesta branch o serviço de Notificações, com banco próprio; ele consome
+`pedido.criado.v1`, `pedido.status-alterado.v1` e `pagamento.aprovado.v1`, registra payload e
+horário de recebimento e gera logs de confirmação sem expor o payload.
 
 ## Placar da rubrica
 
