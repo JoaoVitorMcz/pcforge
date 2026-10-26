@@ -28,6 +28,39 @@ realmente precisa.
 
 ---
 
+## Domínios e subdomínios
+
+Antes de desenhar fronteiras, vale separar o que é **essencial ao negócio** do que é só
+necessário para ele funcionar. O DDD classifica os subdomínios em três tipos, e a
+classificação responde a uma pergunta prática: **onde investir esforço de modelagem**.
+
+| Subdomínio | Tipo | Por quê |
+|---|---|---|
+| **Loja** — clientes, catálogo, pedidos | **Core** | É o negócio. A regra de não vender o que não há em estoque, o preço registrado no momento da compra e o ciclo de vida do pedido são o que distingue este sistema. Não existe versão pronta disso para comprar. |
+| **Pagamentos** | **Supporting** | Indispensável — sem cobrar não há loja —, mas a lógica é de integração, não de diferencial: qualquer e-commerce cobra do mesmo jeito. O valor está em isolar a falha do parceiro externo, não em modelar cobrança. |
+| **Notificações** | **Generic** | Guardar histórico de eventos é problema resolvido. Poderia ser trocado por qualquer ferramenta de log sem o negócio mudar uma linha. |
+
+**O que isso determina na prática:**
+
+O **core** merece modelagem cuidadosa — é onde os Aggregates são desenhados com atenção,
+onde os invariantes são explícitos e onde vale discutir se `preco_unitario` pertence ao item
+ou ao produto. Ver [ddd-aggregates.md](ddd-aggregates.md).
+
+O **supporting** merece isolamento, não modelagem: uma tabela de transações e uma camada de
+tradução bastam. É onde entram retry, timeout e circuit breaker, porque o risco ali é de
+integração.
+
+O **generic** merece o mínimo: grava o evento, registra no log, segue. Qualquer esforço de
+modelagem investido nele é esforço tirado do core.
+
+Essa é também a razão de o Catálogo ter ficado dentro da Loja em vez de virar serviço
+próprio: catálogo e pedido fazem parte do **mesmo** subdomínio core, compartilhando o
+invariante do estoque. Separá-los seria dividir o núcleo do negócio em dois pela conveniência
+da infraestrutura — e o [ADR-002](adr/002-corte-microsservicos.md) registra o custo que isso
+teria.
+
+---
+
 ## Os três contextos
 
 ### Loja — o contexto central

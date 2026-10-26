@@ -17,9 +17,9 @@ de consistência que vem junto.
 Duas características do código atual restringem o corte:
 
 1. **A baixa de estoque e a criação do pedido estão na mesma transação.** Em
-   `TechAcademy5back/src/services/pedido.service.ts`, a transação abre na linha 171 e o
-   `Produto.decrement("estoque", …)` roda dentro dela, na linha 200. Se qualquer item falhar,
-   o rollback desfaz pedido, itens e baixa juntos.
+   `TechAcademy5back/src/services/pedido.service.ts`, a transação abre na linha 179 e o
+   `Produto.decrement("estoque", …)` roda dentro dela, na linha 210, com commit na 217. Se
+   qualquer item falhar, o rollback desfaz pedido, itens e baixa juntos.
 2. **O pagamento não tem tabela própria.** Não existe model `Pagamento` em
    `src/models/`; o estado do pagamento vive em `Pedido.status` e `Pedido.data_pagamento`.
 
@@ -78,16 +78,22 @@ Também é o único ponto do sistema onde circuit breaker, retry e timeout têm 
 
 ## Consequências
 
-- **A confirmação de pagamento deixa de ser síncrona.** Hoje
-  `src/controllers/pagamento.controller.ts` chama `criarPedidoComItens` (linha 33) e grava
-  `pedido.update({ status: "pago" })` direto no model (linhas 164-165), devolvendo o pedido
-  já pago na mesma resposta. Depois da extração, a Loja cria o pedido, o Pagamentos confirma
-  com o Mercado Pago e publica `pagamento.aprovado.v1`; a Loja reage ao evento. A tela de
-  retorno do checkout (`TechAcademy5front/src/Pages/CheckoutRetorno.jsx`) precisa lidar com
-  "ainda processando" como estado normal, não como erro.
-- **O serviço de Pagamentos precisa da própria tabela de transações.** O que hoje é um campo
-  em `Pedido` vira entidade no banco novo, e a Loja mantém só o status do pedido, atualizado
-  por evento.
+- **A confirmação de pagamento deixou de ser síncrona.** Antes da extração,
+  `src/controllers/pagamento.controller.ts` chamava `criarPedidoComItens` e gravava
+  `pedido.update({ status: "pago" })` direto no model, devolvendo o pedido já pago na mesma
+  resposta. Agora a Loja cria o pedido, o serviço de Pagamentos confirma com o Mercado Pago e
+  publica `pagamento.aprovado.v1`; a Loja reage ao evento. A tela de retorno do checkout
+  (`TechAcademy5front/src/Pages/CheckoutRetorno.jsx`) precisa tratar "ainda processando" como
+  estado normal, não como erro.
+- **O serviço de Pagamentos ganhou a própria tabela de transações.** O que era um campo em
+  `Pedido` virou entidade no banco `pagamentos-db`, e a Loja mantém só o status do pedido,
+  atualizado por evento.
+
+> **Estado em 26/10:** a extração está feita. `pagamento.controller.ts` e
+> `mercadoPago.service.ts` não existem mais em `TechAcademy5back/`; o serviço vive em
+> `TechAcademy5payments/` com banco próprio, e a Loja consome o evento por
+> `src/events/pagamento-aprovado.subscriber.ts`. O que falta ali é resiliência — retry,
+> timeout e circuit breaker (SCRUM-35).
 - **A Loja passa a guardar cópia do que vem de fora.** É duplicação deliberada: o preço de
   cada evento é não ter acoplamento de banco.
 - **Se o Redis cair, os eventos param.** O Pub/Sub não retém mensagens para consumidores
@@ -95,4 +101,4 @@ Também é o único ponto do sistema onde circuit breaker, retry e timeout têm 
   queda do Redis não chegaria à Loja. Em produção isso exigiria outbox ou fila durável; no
   escopo acadêmico, fica registrado como limitação conhecida.
 - **O Catálogo dentro da Loja é uma decisão a defender, não a esconder.** Um avaliador pode
-  perguntar por que não foram quatro serviços; a resposta é a transação da linha 200.
+  perguntar por que não foram quatro serviços; a resposta é a transação da linha 210.
