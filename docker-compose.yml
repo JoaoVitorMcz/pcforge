@@ -32,6 +32,23 @@ services:
       timeout: 5s
       retries: 5
 
+  notificacoes-db:
+    image: mysql:8.0
+    container_name: pcforge_notificacoes_db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${NOTIFICATIONS_DB_ROOT_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: ${NOTIFICATIONS_DB_NAME:-pcforge_notificacoes}
+    volumes:
+      - notificacoes_data:/var/lib/mysql
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${NOTIFICATIONS_DB_ROOT_PASSWORD:-rootpassword}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   pagamentos-db:
     image: mysql:8.0
     container_name: pcforge_pagamentos_db
@@ -80,6 +97,27 @@ services:
     volumes:
       - ./TechAcademy5back/uploads:/app/uploads
       - ./TechAcademy5front/public/imagens/produtos:/app/catalogo-imagens:ro
+
+  notifications:
+    build:
+      context: ./TechAcademy5notifications
+      dockerfile: Dockerfile
+    container_name: pcforge_notifications
+    restart: unless-stopped
+    environment:
+      DB_HOST: notificacoes-db
+      DB_PORT: 3306
+      DB_NAME: ${NOTIFICATIONS_DB_NAME:-pcforge_notificacoes}
+      DB_USER: root
+      DB_PASSWORD: ${NOTIFICATIONS_DB_ROOT_PASSWORD:-rootpassword}
+      REDIS_URL: ${REDIS_URL}
+    depends_on:
+      notificacoes-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
 
   frontend:
     build:
@@ -157,6 +195,7 @@ services:
 
 volumes:
   mysql_data:
+  notificacoes_data:
   pagamentos_data:
 
 networks:

@@ -26,6 +26,7 @@ E-commerce full stack de componentes de PC, desenvolvido como projeto acadêmico
 
 **Infraestrutura e qualidade**
 - Docker Compose (Loja, Pagamentos, bancos MySQL separados, Redis, front-end e Nginx)
+- Microsserviço de Notificações com histórico de eventos em banco próprio
 - Nginx como proxy reverso HTTPS com cabeçalhos de segurança
 - Jest + Supertest (testes de integração da API)
 - Playwright (testes end-to-end)
@@ -72,6 +73,9 @@ https://pcforge.local
 
 Loja <── Redis Pub/Sub ──> Pagamentos
 ```
+
+O Redis também transporta eventos para o serviço de Notificações, que mantém o histórico no
+banco isolado `pcforge_notificacoes`.
 
 O back-end segue uma organização em camadas:
 
