@@ -156,7 +156,68 @@ impede que essa submissão contamine o domínio.
 
 ## O desenho
 
-Especificação para o diagrama em `docs/diagramas/context-map.drawio.png`, pelo padrão de
+```mermaid
+flowchart TB
+    subgraph CORE["CORE DOMAIN"]
+        LOJA["<b>Loja</b><br/><br/>Clientes · Catálogo · Pedidos<br/><br/><i>invariante: não vender<br/>o que não há em estoque</i>"]
+        DBL[("MySQL<br/>Loja")]
+        LOJA --- DBL
+    end
+
+    subgraph SUP["SUPPORTING"]
+        PAG["<b>Pagamentos</b><br/><br/>Transações · Preferências"]
+        DBP[("MySQL<br/>Pagamentos")]
+        PAG --- DBP
+    end
+
+    subgraph GEN["GENERIC"]
+        NOT["<b>Notificações</b><br/><br/>Histórico de eventos"]
+        DBN[("MySQL<br/>Notificações")]
+        NOT --- DBN
+    end
+
+    REDIS{{"<b>Redis Pub/Sub</b>"}}
+
+    ACL["<b>ACL</b><br/><i>Anti-Corruption<br/>Layer</i>"]
+    MP["<b>Mercado Pago</b><br/><i>sistema externo</i><br/><br/>preference_id<br/>external_reference<br/>approved"]
+
+    LOJA -.->|"pedido.criado.v1<br/>pedido.status-alterado.v1<br/><i>Publisher</i>"| REDIS
+    REDIS -.->|"<i>Subscriber</i>"| PAG
+    PAG -.->|"pagamento.aprovado.v1<br/><i>Publisher</i>"| REDIS
+    REDIS -.->|"<i>Subscriber</i>"| LOJA
+    REDIS -.->|"<i>Subscriber</i>"| NOT
+
+    PAG ==> ACL
+    ACL ==>|"HTTPS/REST<br/><i>Conformist</i>"| MP
+
+    style LOJA fill:#1168bd,stroke:#0b4884,stroke-width:3px,color:#fff
+    style PAG fill:#4a7fb5,stroke:#2d5a8a,color:#fff
+    style NOT fill:#7a8fa3,stroke:#5a6b7a,color:#fff
+    style DBL fill:#2e7d32,stroke:#1b5e20,color:#fff
+    style DBP fill:#2e7d32,stroke:#1b5e20,color:#fff
+    style DBN fill:#2e7d32,stroke:#1b5e20,color:#fff
+    style REDIS fill:#a53030,stroke:#6d1f1f,stroke-width:2px,color:#fff
+    style ACL fill:#c9770f,stroke:#8a5209,stroke-width:3px,color:#fff
+    style MP fill:#6b6b6b,stroke:#4d4d4d,stroke-dasharray:5 5,color:#fff
+    style CORE fill:#0d2d4d,stroke:#1168bd,stroke-width:2px,color:#fff
+    style SUP fill:#1a2d3d,stroke:#4a7fb5,color:#fff
+    style GEN fill:#24292e,stroke:#7a8fa3,color:#fff
+```
+
+**A intensidade do azul comunica a classificação**: a Loja é o azul mais forte porque é o
+core; Notificações é o mais apagado porque é generic. Isso não é decoração — é o diagrama
+dizendo onde investir esforço.
+
+**A ACL aparece como caixa própria**, laranja, entre Pagamentos e Mercado Pago. Desenhá-la
+como elemento em vez de rótulo deixa claro que é uma camada de código real, com a função de
+impedir que `preference_id` e `approved` vazem para o domínio.
+
+**Linha tracejada é evento, linha grossa é chamada síncrona.** Todas as tracejadas passam
+pelo Redis.
+
+### Como refazer no draw.io
+
+Especificação para `docs/diagramas/context-map.drawio.png`, pelo padrão de
 [diagramas/README.md](diagramas/README.md).
 
 **Caixas** — três contextos nossos mais um sistema externo:
