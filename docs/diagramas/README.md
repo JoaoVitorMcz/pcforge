@@ -86,6 +86,7 @@ Sem números de versão no nome e sem data. O histórico do git já guarda isso.
 | Fluxo completo de autorização | Mermaid `sequenceDiagram` | [rbac.md](../rbac.md) |
 | Arquitetura do monólito | Mermaid `flowchart` | [contextualizacao.md](../contextualizacao.md) |
 | Domínios Cynefin com o projeto posicionado | Mermaid `flowchart` | [gestao/cynefin.md](../gestao/cynefin.md) |
+| Aggregates — Pedido, Cliente e Produto (3 diagramas) | Mermaid `classDiagram` | [ddd-aggregates.md](../ddd-aggregates.md) |
 
 ### Previstos — módulo de microsserviços
 
@@ -93,10 +94,9 @@ O arquivo de destino já está definido. O card que produzir o diagrama escreve 
 
 | Diagrama | Ferramenta | Arquivo | Card |
 |---|---|---|---|
-| C4 nível 1 — Contexto | draw.io | `docs/diagramas/c4-contexto.drawio.png` | SCRUM-28 |
-| C4 nível 2 — Containers | draw.io | `docs/diagramas/c4-containers.drawio.png` | SCRUM-28 |
+| C4 nível 1 — Contexto | draw.io | `docs/diagramas/c4-contexto.drawio.png` — especificado em [c4-arquitetura.md](../c4-arquitetura.md) | SCRUM-28 |
+| C4 nível 2 — Containers | draw.io | `docs/diagramas/c4-containers.drawio.png` — especificado em [c4-arquitetura.md](../c4-arquitetura.md) | SCRUM-28 |
 | Context Map — Loja, Pagamentos, Notificações e Mercado Pago com ACL | draw.io | `docs/diagramas/context-map.drawio.png` — especificado em [ddd-context-map.md](../ddd-context-map.md) | SCRUM-29 |
-| Aggregates — Pedido com ItemPedido | Mermaid `classDiagram` | `docs/ddd-aggregates.md` | SCRUM-30 |
 | Sequência — cache-aside: hit, miss e invalidação | Mermaid `sequenceDiagram` | `docs/diagramas-sequencia.md` | SCRUM-18 |
 | Sequência — checkout entre serviços via eventos | Mermaid `sequenceDiagram` | `docs/diagramas-sequencia.md` | SCRUM-41 |
 | Pipeline de CI/CD | Mermaid `flowchart` | `docs/entrega-continua.md` | SCRUM-36 |
