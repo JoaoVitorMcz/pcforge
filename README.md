@@ -26,6 +26,7 @@ E-commerce full stack de componentes de PC, desenvolvido como projeto acadêmico
 
 **Infraestrutura e qualidade**
 - Docker Compose (Loja, Pagamentos, bancos MySQL separados, Redis, front-end e Nginx)
+- Microsserviço de Notificações com histórico de eventos em banco próprio
 - Nginx como proxy reverso HTTPS com cabeçalhos de segurança
 - Jest + Supertest (testes de integração da API)
 - Playwright (testes end-to-end)
@@ -80,6 +81,9 @@ Somente o Nginx publica portas no host: `80` e `443` para o site e `8080` para o
 durante o desenvolvimento. O mobile deduz o IP da máquina pelo servidor Expo e usa
 `http://<IP>:8080/api`; se necessário, configure `EXPO_PUBLIC_API_URL` em
 `TechAcademy5mobile/.env` com a URL do gateway e o prefixo `/api`.
+
+O Redis também transporta eventos para o serviço de Notificações, que mantém o histórico no
+banco isolado `pcforge_notificacoes`.
 
 O back-end segue uma organização em camadas:
 
