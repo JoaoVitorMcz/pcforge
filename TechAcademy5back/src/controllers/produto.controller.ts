@@ -2,8 +2,9 @@ import { Request, Response } from "express";
 import Produto from "../models/Produto";
 import { Op } from "sequelize";
 import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination";
-import { cacheAside, invalidarCachePorPrefixo } from "../utils/cache";
+import { cacheAside } from "../utils/cache";
 import AppError from "../utils/app-error";
+import { publicarProdutoAtualizado } from "../services/produto-event.service";
 
 const TTL_PRODUTOS_SEGUNDOS = 5 * 60;
 
@@ -84,7 +85,7 @@ export const criarProduto = async (req: Request, res: Response): Promise<void> =
       estoque: estoque || 0,
       ativo: true,
     });
-    await invalidarCachePorPrefixo("produtos:");
+    await publicarProdutoAtualizado(novoProduto.id_produto);
 
     res.status(201).json({
       mensagem: "Produto criado com sucesso.",
@@ -127,7 +128,7 @@ export const atualizarProduto = async (req: Request, res: Response): Promise<voi
     if (estoque !== undefined) dadosAtualizados.estoque = estoque;
 
     await produto.update(dadosAtualizados);
-    await invalidarCachePorPrefixo("produtos:");
+    await publicarProdutoAtualizado(produto.id_produto);
 
     res.status(200).json({
       mensagem: "Produto atualizado com sucesso.",
@@ -150,7 +151,7 @@ export const desativarProduto = async (req: Request, res: Response): Promise<voi
     }
 
     await produto.update({ ativo: false });
-    await invalidarCachePorPrefixo("produtos:");
+    await publicarProdutoAtualizado(produto.id_produto);
 
     res.status(200).json({
       mensagem: "Produto desativado com sucesso.",

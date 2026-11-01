@@ -42,6 +42,19 @@ Publicado pela Loja depois que a transição de status foi persistida.
 }
 ```
 
+## `produto.atualizado.v1`
+
+Publicado pela Loja depois de criar, atualizar ou desativar um produto. Cada
+instância da Loja consome o evento e invalida as entradas `produtos:*` do cache
+Redis, evitando servir listas, destaques ou buscas desatualizadas.
+
+```json
+{
+  "produto_id": 11,
+  "atualizado_em": "2026-10-23T20:00:00.000Z"
+}
+```
+
 ## `pagamento.aprovado.v1`
 
 Publicado pelo serviço de Pagamentos após consultar a transação no Mercado Pago e persistir

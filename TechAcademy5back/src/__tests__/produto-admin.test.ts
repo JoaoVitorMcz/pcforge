@@ -4,6 +4,9 @@ import { criarProduto, atualizarProduto, desativarProduto } from "../controllers
 import { TokenPayload } from "../config/jwt";
 
 jest.mock("../models/Produto");
+jest.mock("../services/produto-event.service", () => ({
+  publicarProdutoAtualizado: jest.fn().mockResolvedValue(undefined),
+}));
 jest.mock("../config/auth.middleware");
 jest.mock("../config/jwt");
 
