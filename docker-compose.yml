@@ -84,9 +84,6 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS}
       LEGACY_IMAGES_DIR: /app/catalogo-imagens
       REDIS_URL: ${REDIS_URL}
-    # Removida na SCRUM-42, quando o mobile passar a usar o gateway Nginx.
-    ports:
-      - "3000:3000"
     depends_on:
       mysql:
         condition: service_healthy
@@ -180,6 +177,7 @@ services:
     ports:
       - "80:80"
       - "443:443"
+      - "8080:8080"
     depends_on:
       frontend:
         condition: service_started

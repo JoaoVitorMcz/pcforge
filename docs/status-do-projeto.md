@@ -7,8 +7,8 @@ decisões foram tomadas assim.
 > Fase D, listados abaixo — este aqui só rastreia o andamento. Não marque aqueles itens da
 > rubrica como prontos por causa deste documento.
 
-Última atualização: implementação da SCRUM-41 na branch
-`feature/SCRUM-41-extrair-servico-pagamentos`.
+Última atualização: implementação da SCRUM-42 na branch
+`feature/SCRUM-42-gateway-nginx-mobile`.
 
 ### Back-end avançado — Sprint 1 em andamento
 
@@ -29,13 +29,20 @@ andamento; a atualização do gateway permanece em uma branch própria.
 ### Sprint 2 — eventos e microsserviços
 
 A SCRUM-23 e a SCRUM-46 foram mergeadas em `dev`: a Loja publica eventos de pedido e consome
-`pagamento.aprovado.v1` de forma idempotente. A SCRUM-41 também foi integrada em `dev`: o
-serviço de Pagamentos tem banco próprio, consome `pedido.criado.v1`, valida JWT localmente,
-gera preferências e publica aprovações verificadas no Mercado Pago.
+`pagamento.aprovado.v1` de forma idempotente. A SCRUM-41 e a SCRUM-24 também foram integradas
+em `dev`: Pagamentos tem banco próprio, consome `pedido.criado.v1`, valida JWT localmente,
+gera preferências e publica aprovações verificadas no Mercado Pago; Notificações consome os
+eventos versionados e registra o histórico em banco próprio.
 
-A SCRUM-24 adiciona nesta branch o serviço de Notificações, com banco próprio; ele consome
-`pedido.criado.v1`, `pedido.status-alterado.v1` e `pagamento.aprovado.v1`, registra payload e
-horário de recebimento e gera logs de confirmação sem expor o payload.
+O código Mercado Pago foi removido da Loja; o checkout web tenta novamente quando Pagamentos
+ainda não recebeu o evento.
+
+### SCRUM-42 — Nginx como API Gateway e mobile pelo gateway
+
+Nesta branch, `/api/pagamentos` é encaminhado ao Serviço de Pagamentos e os demais caminhos
+`/api/*` à Loja, removendo o prefixo antes de chegar aos serviços. O mobile usa o IP do host
+Expo com a porta HTTP `8080` do Nginx em desenvolvimento; apenas o Nginx publica portas no
+host. Os caminhos legados da web permanecem disponíveis.
 
 ## Placar da rubrica
 

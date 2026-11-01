@@ -57,8 +57,9 @@ E-commerce full stack de componentes de PC, desenvolvido como projeto acadêmico
 - Autenticação stateless via JWT
 - Middleware de autorização em três níveis: rota pública, usuário autenticado e administrador
 - Middleware `selfOrAdmin`, que garante que um cliente só acesse os próprios dados
-- Back-end e banco sem portas expostas ao host — todo acesso passa pelo Nginx
+- Back-end, pagamentos e bancos sem portas expostas ao host — todo acesso passa pelo Nginx
 - HTTPS obrigatório, com redirecionamento de HTTP e HSTS
+- O app mobile usa a porta HTTP `8080` do Nginx no desenvolvimento para evitar o certificado autoassinado
 
 ---
 
@@ -67,12 +68,19 @@ E-commerce full stack de componentes de PC, desenvolvido como projeto acadêmico
 ```
 https://pcforge.local
 └── Nginx (HTTPS)
-    ├── /pagamentos/* -> Serviço de Pagamentos -> MySQL pcforge_pagamentos
-    ├── APIs da Loja  -> Backend Loja           -> MySQL TechAcademy5
-    └── /             -> Frontend React
+    ├── /api/pagamentos/* -> Serviço de Pagamentos -> MySQL pcforge_pagamentos
+    ├── /api/*            -> Backend Loja           -> MySQL TechAcademy5
+    ├── /pagamentos/*     -> Serviço de Pagamentos (compatibilidade web)
+    ├── APIs da Loja      -> Backend Loja (compatibilidade web)
+    └── /                 -> Frontend React
 
 Loja <── Redis Pub/Sub ──> Pagamentos
 ```
+
+Somente o Nginx publica portas no host: `80` e `443` para o site e `8080` para o app mobile
+durante o desenvolvimento. O mobile deduz o IP da máquina pelo servidor Expo e usa
+`http://<IP>:8080/api`; se necessário, configure `EXPO_PUBLIC_API_URL` em
+`TechAcademy5mobile/.env` com a URL do gateway e o prefixo `/api`.
 
 O Redis também transporta eventos para o serviço de Notificações, que mantém o histórico no
 banco isolado `pcforge_notificacoes`.
