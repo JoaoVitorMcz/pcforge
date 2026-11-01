@@ -73,6 +73,10 @@ identificador, método, caminho sem query string, status HTTP e duração em
 milissegundos. Os logs de erros inesperados também incluem o identificador, sem
 registrar corpo da requisição, tokens ou mensagem potencialmente sensível.
 
+Atualizações, criações e desativações de produtos publicam o evento
+`produto.atualizado.v1`; as instâncias da Loja o consomem para invalidar as
+entradas do cache de produtos no Redis.
+
 ---
 
 ## Arquitetura

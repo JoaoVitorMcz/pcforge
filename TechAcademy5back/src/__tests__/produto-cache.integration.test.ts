@@ -3,6 +3,8 @@ import request from "supertest";
 import redisClient from "../config/redis";
 import Produto from "../models/Produto";
 import * as ProdutoController from "../controllers/produto.controller";
+import { processarProdutoAtualizado } from "../events/produto-atualizado.consumer";
+import { PRODUTO_ATUALIZADO_EVENT } from "../events/produto.event";
 import errorMiddleware from "../middleware/error.middleware";
 
 const mockCache = new Map<string, string>();
@@ -18,6 +20,7 @@ jest.mock("../config/redis", () => ({
     }),
     scanIterator: jest.fn(),
     del: jest.fn((chave: string) => Promise.resolve(Number(mockCache.delete(chave)))),
+    publish: jest.fn(),
   },
 }));
 jest.mock("../models/Produto");
@@ -25,6 +28,7 @@ jest.mock("../models/Produto");
 const redisMock = redisClient as unknown as {
   isReady: boolean;
   scanIterator: jest.Mock;
+  publish: jest.Mock;
 };
 
 describe("cache de produtos via endpoints", () => {
@@ -36,6 +40,15 @@ describe("cache de produtos via endpoints", () => {
     jest.clearAllMocks();
     mockCache.clear();
     redisMock.isReady = true;
+    redisMock.publish.mockImplementation(
+      async (eventName: string, message: string) => {
+        if (eventName !== PRODUTO_ATUALIZADO_EVENT) {
+          return 0;
+        }
+        await processarProdutoAtualizado(message);
+        return 1;
+      }
+    );
     produto = { id_produto: 1, nome: "GPU", ativo: true };
     atualizarProduto = jest.fn(async (dados: Partial<typeof produto>) => {
       Object.assign(produto, dados);
@@ -46,6 +59,7 @@ describe("cache de produtos via endpoints", () => {
       count: 1,
     }));
     (Produto.findOne as jest.Mock).mockResolvedValue({
+      id_produto: produto.id_produto,
       update: atualizarProduto,
     });
     redisMock.scanIterator.mockImplementation(({ MATCH }: { MATCH: string }) =>

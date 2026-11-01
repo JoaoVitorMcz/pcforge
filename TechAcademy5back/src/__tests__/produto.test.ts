@@ -10,6 +10,9 @@ import {
 } from "../controllers/produto.controller";
 
 jest.mock("../models/Produto");
+jest.mock("../services/produto-event.service", () => ({
+  publicarProdutoAtualizado: jest.fn().mockResolvedValue(undefined),
+}));
 
 let consoleErrorSpy: jest.SpyInstance;
 

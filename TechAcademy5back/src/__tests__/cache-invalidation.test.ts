@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import Produto from "../models/Produto";
 import { atualizarProduto, criarProduto, desativarProduto } from "../controllers/produto.controller";
-import { invalidarCachePorPrefixo } from "../utils/cache";
+import { publicarProdutoAtualizado } from "../services/produto-event.service";
 
 jest.mock("../models/Produto", () => ({
   __esModule: true,
@@ -9,7 +9,9 @@ jest.mock("../models/Produto", () => ({
 }));
 jest.mock("../utils/cache", () => ({
   cacheAside: jest.fn(),
-  invalidarCachePorPrefixo: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock("../services/produto-event.service", () => ({
+  publicarProdutoAtualizado: jest.fn().mockResolvedValue(undefined),
 }));
 
 const criarResposta = (): Partial<Response> => {
@@ -26,25 +28,25 @@ describe("invalidação de cache nas escritas", () => {
     jest.clearAllMocks();
   });
 
-  it("invalida produtos depois de criar um produto", async () => {
+  it("publica evento depois de criar um produto", async () => {
     (Produto.create as jest.Mock).mockResolvedValue({ id_produto: 1 });
     const req = criarRequisicao({ nome: "GPU", valor: 100 });
     const res = criarResposta();
 
     await criarProduto(req as Request, res as Response);
 
-    expect(invalidarCachePorPrefixo).toHaveBeenCalledWith("produtos:");
+    expect(publicarProdutoAtualizado).toHaveBeenCalledWith(1);
   });
 
-  it("invalida produtos depois de atualizar ou desativar um produto", async () => {
-    const produto = { update: jest.fn().mockResolvedValue(undefined) };
+  it("publica evento depois de atualizar ou desativar um produto", async () => {
+    const produto = { id_produto: 1, update: jest.fn().mockResolvedValue(undefined) };
     (Produto.findOne as jest.Mock).mockResolvedValue(produto);
 
     await atualizarProduto(
       criarRequisicao({ nome: "GPU nova" }, { id: "1" }) as Request,
       criarResposta() as Response
     );
-    expect(invalidarCachePorPrefixo).toHaveBeenCalledWith("produtos:");
+    expect(publicarProdutoAtualizado).toHaveBeenCalledWith(1);
 
     jest.clearAllMocks();
     (Produto.findOne as jest.Mock).mockResolvedValue(produto);
@@ -52,6 +54,6 @@ describe("invalidação de cache nas escritas", () => {
       criarRequisicao({}, { id: "1" }) as Request,
       criarResposta() as Response
     );
-    expect(invalidarCachePorPrefixo).toHaveBeenCalledWith("produtos:");
+    expect(publicarProdutoAtualizado).toHaveBeenCalledWith(1);
   });
 });
