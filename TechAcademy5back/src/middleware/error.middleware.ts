@@ -2,6 +2,7 @@ import { ErrorRequestHandler } from "express";
 import multer from "multer";
 import AppError from "../utils/app-error";
 import { UploadValidationError } from "../utils/upload.errors";
+import { logError } from "../utils/logger";
 
 const obterAppError = (erro: unknown): AppError | null => {
   if (erro instanceof AppError) {
@@ -35,7 +36,7 @@ const errorMiddleware: ErrorRequestHandler = (erro, _req, res, _next) => {
     });
   }
 
-  console.error("Erro inesperado na API:", erro);
+  logError("Erro inesperado na API", {}, erro);
   return res.status(500).json({
     erro: { codigo: "ERRO_INTERNO", mensagem: "Erro interno do servidor." },
   });

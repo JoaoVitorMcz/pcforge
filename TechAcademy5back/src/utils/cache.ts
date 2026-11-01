@@ -1,4 +1,5 @@
 import redisClient from "../config/redis";
+import { logError } from "./logger";
 
 export const cacheAside = async <T>(
   chave: string,
@@ -13,7 +14,11 @@ export const cacheAside = async <T>(
         return JSON.parse(valorEmCache) as T;
       }
     } catch (error) {
-      console.error(`Falha ao ler cache ${chave}; consultando MySQL:`, error);
+      logError(
+        "Falha ao ler cache; consultando MySQL",
+        { cacheKey: chave },
+        error
+      );
     }
   }
 
@@ -24,7 +29,7 @@ export const cacheAside = async <T>(
     try {
       await redisClient.set(chave, JSON.stringify(valor), { EX: ttlSegundos });
     } catch (error) {
-      console.error(`Falha ao gravar cache ${chave}:`, error);
+      logError("Falha ao gravar cache", { cacheKey: chave }, error);
     }
   }
 
@@ -45,6 +50,6 @@ export const invalidarCachePorPrefixo = async (prefixo: string): Promise<void> =
       await Promise.all(chaves.map((chave) => redisClient.del(chave)));
     }
   } catch (error) {
-    console.error(`Falha ao invalidar cache ${prefixo}:`, error);
+    logError("Falha ao invalidar cache", { cachePrefix: prefixo }, error);
   }
 };

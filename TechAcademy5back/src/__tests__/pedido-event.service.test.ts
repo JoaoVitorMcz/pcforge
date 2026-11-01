@@ -18,6 +18,9 @@ import {
   publicarPedidoCriado,
   publicarPedidoStatusAlterado,
 } from "../services/pedido-event.service";
+import { runWithRequestId } from "../utils/request-context";
+
+const REQUEST_ID = "7e3f63b2-49e1-4f13-8c5c-d72014b7a3a1";
 
 describe("publicação de eventos de pedido", () => {
   const pedidoCriado: PedidoCriadoEvent = {
@@ -104,19 +107,28 @@ describe("publicação de eventos de pedido", () => {
     expect(redisClient.publish).not.toHaveBeenCalled();
   });
 
-  it("converte uma falha do Redis em erro explícito sem descartar sua causa no log", async () => {
+  it("registra o identificador ao converter uma falha do Redis em erro explícito", async () => {
     const redisError = new Error("redis unavailable");
     (redisClient.publish as jest.Mock).mockRejectedValue(redisError);
 
-    await expect(publicarPedidoStatusAlterado(statusAlterado)).rejects.toMatchObject({
-      statusCode: 503,
-      codigo: "EVENTO_INDISPONIVEL",
-      message: expect.stringContaining("Pedido 42 foi persistido"),
+    await runWithRequestId(REQUEST_ID, async () => {
+      await expect(publicarPedidoStatusAlterado(statusAlterado)).rejects.toMatchObject({
+        statusCode: 503,
+        codigo: "EVENTO_INDISPONIVEL",
+        message: expect.stringContaining("Pedido 42 foi persistido"),
+      });
     });
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      `Falha ao publicar ${PEDIDO_STATUS_ALTERADO_EVENT}:`,
-      redisError
-    );
+
+    const registro = JSON.parse(consoleErrorSpy.mock.calls[0][0] as string);
+    expect(registro).toMatchObject({
+      level: "error",
+      message: "Falha ao publicar evento de pedido",
+      requestId: REQUEST_ID,
+      eventName: PEDIDO_STATUS_ALTERADO_EVENT,
+      orderId: 42,
+      error: { name: "Error" },
+    });
+    expect(JSON.stringify(registro)).not.toContain(redisError.message);
   });
 
   it("usa AppError para expor a falha ao middleware HTTP", async () => {

@@ -61,6 +61,18 @@ E-commerce full stack de componentes de PC, desenvolvido como projeto acadêmico
 - HTTPS obrigatório, com redirecionamento de HTTP e HSTS
 - O app mobile usa a porta HTTP `8080` do Nginx no desenvolvimento para evitar o certificado autoassinado
 
+## Logs de requisição
+
+A API da Loja retorna o identificador da requisição no cabeçalho `X-Request-Id`.
+UUIDs válidos recebidos nesse cabeçalho são preservados; se estiver ausente ou for
+inválido, a API gera um UUID novo. O cabeçalho é exposto via CORS para permitir
+que clientes web o leiam.
+
+Ao concluir cada resposta, a API escreve uma linha JSON com timestamp, nível,
+identificador, método, caminho sem query string, status HTTP e duração em
+milissegundos. Os logs de erros inesperados também incluem o identificador, sem
+registrar corpo da requisição, tokens ou mensagem potencialmente sensível.
+
 ---
 
 ## Arquitetura

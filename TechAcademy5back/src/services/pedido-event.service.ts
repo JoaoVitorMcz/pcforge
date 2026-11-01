@@ -6,6 +6,7 @@ import {
   PedidoCriadoEvent,
   PedidoStatusAlteradoEvent,
 } from "../events/pedido.event";
+import { logError } from "../utils/logger";
 
 async function publicarEventoPedido(
   nomeEvento: string,
@@ -21,7 +22,11 @@ async function publicarEventoPedido(
       `${mensagemIndisponivel} O Redis está indisponível.`,
       "EVENTO_INDISPONIVEL"
     );
-    console.error(error.message);
+    logError("Evento de pedido não entregue", {
+      eventName: nomeEvento,
+      orderId: pedidoId,
+      errorCode: error.codigo,
+    });
     throw error;
   }
 
@@ -40,11 +45,19 @@ async function publicarEventoPedido(
     }
   } catch (error) {
     if (error instanceof AppError) {
-      console.error(error.message);
+      logError("Evento de pedido não entregue", {
+        eventName: nomeEvento,
+        orderId: pedidoId,
+        errorCode: error.codigo,
+      });
       throw error;
     }
 
-    console.error(`Falha ao publicar ${nomeEvento}:`, error);
+    logError(
+      "Falha ao publicar evento de pedido",
+      { eventName: nomeEvento, orderId: pedidoId },
+      error
+    );
     throw new AppError(503, mensagemIndisponivel, "EVENTO_INDISPONIVEL");
   }
 }
