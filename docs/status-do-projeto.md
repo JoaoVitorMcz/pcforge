@@ -28,13 +28,20 @@ e do DTO de saída. A suíte atual da Loja passa com 149 testes.
 ### Sprint 2 — eventos e extração de Pagamentos
 
 A SCRUM-23 e a SCRUM-46 foram mergeadas em `dev`: a Loja publica eventos de pedido e consome
-`pagamento.aprovado.v1` de forma idempotente. A SCRUM-41 está implementada na branch atual:
+`pagamento.aprovado.v1` de forma idempotente. A SCRUM-41 também foi integrada em `dev`:
 o serviço de Pagamentos tem banco próprio, consome `pedido.criado.v1`, valida JWT localmente,
 gera preferências e publica aprovações verificadas no Mercado Pago. O código Mercado Pago foi
 removido da Loja; o checkout web tenta novamente quando o serviço ainda não recebeu o evento.
 
 As suítes unitárias, lint, build, Compose config e 30 testes E2E passam. Ainda não foi feita
 uma execução integrada com containers nem uma transação externa no Mercado Pago nesta branch.
+
+### SCRUM-42 — Nginx como API Gateway e mobile pelo gateway
+
+Nesta branch, `/api/pagamentos` é encaminhado ao Serviço de Pagamentos e os demais caminhos
+`/api/*` à Loja, removendo o prefixo antes de chegar aos serviços. O mobile usa o IP do host
+Expo com a porta HTTP `8080` do Nginx em desenvolvimento; apenas o Nginx publica portas no
+host. Os caminhos legados da web permanecem disponíveis.
 
 ## Placar da rubrica
 
