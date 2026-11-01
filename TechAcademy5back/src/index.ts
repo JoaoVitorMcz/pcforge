@@ -10,6 +10,7 @@ import { iniciarConsumidorPagamentoAprovado } from "./events/pagamento-aprovado.
 import "./models/rbac.associations";
 import { uploadDir } from "./config/upload";
 import errorMiddleware from "./middleware/error.middleware";
+import requestLoggingMiddleware from "./middleware/request-logging.middleware";
 import clienteRoutes from "./routes/cliente.routes";
 import produtoRoutes from "./routes/produto.routes";
 import categoriaRoutes from "./routes/categoria.routes";
@@ -35,7 +36,13 @@ const allowedOrigins = (process.env.CORS_ORIGINS ?? "")
   .map((origem) => origem.trim())
   .filter(Boolean);
 
-app.use(cors({ origin: allowedOrigins.length > 0 ? allowedOrigins : true }));
+app.use(requestLoggingMiddleware);
+app.use(
+  cors({
+    origin: allowedOrigins.length > 0 ? allowedOrigins : true,
+    exposedHeaders: ["X-Request-Id"],
+  })
+);
 
 app.use(express.json());
 app.use("/uploads", express.static(uploadDir));
