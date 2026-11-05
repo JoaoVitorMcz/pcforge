@@ -28,6 +28,39 @@ realmente precisa.
 
 ---
 
+## Domínios e subdomínios
+
+Antes de desenhar fronteiras, vale separar o que é **essencial ao negócio** do que é só
+necessário para ele funcionar. O DDD classifica os subdomínios em três tipos, e a
+classificação responde a uma pergunta prática: **onde investir esforço de modelagem**.
+
+| Subdomínio | Tipo | Por quê |
+|---|---|---|
+| **Loja** — clientes, catálogo, pedidos | **Core** | É o negócio. A regra de não vender o que não há em estoque, o preço registrado no momento da compra e o ciclo de vida do pedido são o que distingue este sistema. Não existe versão pronta disso para comprar. |
+| **Pagamentos** | **Supporting** | Indispensável — sem cobrar não há loja —, mas a lógica é de integração, não de diferencial: qualquer e-commerce cobra do mesmo jeito. O valor está em isolar a falha do parceiro externo, não em modelar cobrança. |
+| **Notificações** | **Generic** | Guardar histórico de eventos é problema resolvido. Poderia ser trocado por qualquer ferramenta de log sem o negócio mudar uma linha. |
+
+**O que isso determina na prática:**
+
+O **core** merece modelagem cuidadosa — é onde os Aggregates são desenhados com atenção,
+onde os invariantes são explícitos e onde vale discutir se `preco_unitario` pertence ao item
+ou ao produto. Ver [ddd-aggregates.md](ddd-aggregates.md).
+
+O **supporting** merece isolamento, não modelagem: uma tabela de transações e uma camada de
+tradução bastam. É onde entram retry, timeout e circuit breaker, porque o risco ali é de
+integração.
+
+O **generic** merece o mínimo: grava o evento, registra no log, segue. Qualquer esforço de
+modelagem investido nele é esforço tirado do core.
+
+Essa é também a razão de o Catálogo ter ficado dentro da Loja em vez de virar serviço
+próprio: catálogo e pedido fazem parte do **mesmo** subdomínio core, compartilhando o
+invariante do estoque. Separá-los seria dividir o núcleo do negócio em dois pela conveniência
+da infraestrutura — e o [ADR-002](adr/002-corte-microsservicos.md) registra o custo que isso
+teria.
+
+---
+
 ## Os três contextos
 
 ### Loja — o contexto central
@@ -156,7 +189,68 @@ impede que essa submissão contamine o domínio.
 
 ## O desenho
 
-Especificação para o diagrama em `docs/diagramas/context-map.drawio.png`, pelo padrão de
+```mermaid
+flowchart TB
+    subgraph CORE["CORE DOMAIN"]
+        LOJA["<b>Loja</b><br/><br/>Clientes · Catálogo · Pedidos<br/><br/><i>invariante: não vender<br/>o que não há em estoque</i>"]
+        DBL[("MySQL<br/>Loja")]
+        LOJA --- DBL
+    end
+
+    subgraph SUP["SUPPORTING"]
+        PAG["<b>Pagamentos</b><br/><br/>Transações · Preferências"]
+        DBP[("MySQL<br/>Pagamentos")]
+        PAG --- DBP
+    end
+
+    subgraph GEN["GENERIC"]
+        NOT["<b>Notificações</b><br/><br/>Histórico de eventos"]
+        DBN[("MySQL<br/>Notificações")]
+        NOT --- DBN
+    end
+
+    REDIS{{"<b>Redis Pub/Sub</b>"}}
+
+    ACL["<b>ACL</b><br/><i>Anti-Corruption<br/>Layer</i>"]
+    MP["<b>Mercado Pago</b><br/><i>sistema externo</i><br/><br/>preference_id<br/>external_reference<br/>approved"]
+
+    LOJA -.->|"pedido.criado.v1<br/>pedido.status-alterado.v1<br/><i>Publisher</i>"| REDIS
+    REDIS -.->|"<i>Subscriber</i>"| PAG
+    PAG -.->|"pagamento.aprovado.v1<br/><i>Publisher</i>"| REDIS
+    REDIS -.->|"<i>Subscriber</i>"| LOJA
+    REDIS -.->|"<i>Subscriber</i>"| NOT
+
+    PAG ==> ACL
+    ACL ==>|"HTTPS/REST<br/><i>Conformist</i>"| MP
+
+    style LOJA fill:#1168bd,stroke:#0b4884,stroke-width:3px,color:#fff
+    style PAG fill:#4a7fb5,stroke:#2d5a8a,color:#fff
+    style NOT fill:#7a8fa3,stroke:#5a6b7a,color:#fff
+    style DBL fill:#2e7d32,stroke:#1b5e20,color:#fff
+    style DBP fill:#2e7d32,stroke:#1b5e20,color:#fff
+    style DBN fill:#2e7d32,stroke:#1b5e20,color:#fff
+    style REDIS fill:#a53030,stroke:#6d1f1f,stroke-width:2px,color:#fff
+    style ACL fill:#c9770f,stroke:#8a5209,stroke-width:3px,color:#fff
+    style MP fill:#6b6b6b,stroke:#4d4d4d,stroke-dasharray:5 5,color:#fff
+    style CORE fill:#0d2d4d,stroke:#1168bd,stroke-width:2px,color:#fff
+    style SUP fill:#1a2d3d,stroke:#4a7fb5,color:#fff
+    style GEN fill:#24292e,stroke:#7a8fa3,color:#fff
+```
+
+**A intensidade do azul comunica a classificação**: a Loja é o azul mais forte porque é o
+core; Notificações é o mais apagado porque é generic. Isso não é decoração — é o diagrama
+dizendo onde investir esforço.
+
+**A ACL aparece como caixa própria**, laranja, entre Pagamentos e Mercado Pago. Desenhá-la
+como elemento em vez de rótulo deixa claro que é uma camada de código real, com a função de
+impedir que `preference_id` e `approved` vazem para o domínio.
+
+**Linha tracejada é evento, linha grossa é chamada síncrona.** Todas as tracejadas passam
+pelo Redis.
+
+### Como refazer no draw.io
+
+Especificação para `docs/diagramas/context-map.drawio.png`, pelo padrão de
 [diagramas/README.md](diagramas/README.md).
 
 **Caixas** — três contextos nossos mais um sistema externo:

@@ -123,7 +123,12 @@ jobs:
 
   e2e-tests:
     name: E2E Tests (Playwright)
-    runs-on: ubuntu-latest
+    # Fixado em 24.04 de proposito. Em 03/11/2026 o ubuntu-latest passou a ser
+    # o Ubuntu 26.04, e o Playwright 1.60 recusa instalar os browsers nele:
+    # "Playwright does not support chromium on ubuntu26.04-x64". Os outros jobs
+    # nao instalam browser e seguem no ubuntu-latest sem problema.
+    # Para voltar ao ubuntu-latest, primeiro suba a versao do @playwright/test.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
