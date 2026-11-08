@@ -83,8 +83,8 @@ Levantado do `docker-compose.yml` real.
 |---|---|---|---|
 | **Web** | React 19 | 3001 | Loja e painel administrativo no navegador |
 | **App mobile** | Expo / React Native | — | Compra do cliente e painel do admin |
-| **Gateway** | Nginx | 80, 443 | Proxy reverso HTTPS e roteamento entre serviços |
-| **Loja** | Express 5 + TypeScript | 3000 | Clientes, catálogo e pedidos — o core domain |
+| **Gateway** | Nginx | 80, 443, 8080 | Proxy reverso e roteamento entre serviços — a única porta publicada |
+| **Loja** | Express 5 + TypeScript | 3000, só na rede interna | Clientes, catálogo e pedidos — o core domain |
 | **Pagamentos** | Express 5 + TypeScript | 3002 | Cobrança via Mercado Pago |
 | **Notificações** | Express 5 + TypeScript | — | Consome eventos e guarda o histórico |
 | **Banco da Loja** | MySQL 8 | — | Clientes, produtos, pedidos, RBAC |
@@ -97,10 +97,10 @@ Levantado do `docker-compose.yml` real.
 | De | Para | Rótulo |
 |---|---|---|
 | Web | Gateway | HTTPS |
-| App mobile | Loja | HTTPS — hoje direto na porta 3000 ⚠️ |
-| Gateway | Web | HTTP, proxy reverso |
-| Gateway | Loja | HTTP — `/clientes`, `/produtos`, `/pedidos`, … |
-| Gateway | Pagamentos | HTTP — `/pagamentos` |
+| App mobile | Gateway | HTTP `:8080/api` — só em desenvolvimento |
+| Gateway | Web | HTTP, proxy reverso em `/` |
+| Gateway | Loja | HTTP — `/api/` e as rotas sem prefixo `/clientes`, `/produtos`, … |
+| Gateway | Pagamentos | HTTP — `/api/pagamentos` e `/pagamentos` |
 | Loja | Banco da Loja | SQL/TCP |
 | Loja | Redis | Cache-aside (TTL) **e** publica eventos |
 | Pagamentos | Banco de Pagamentos | SQL/TCP |
@@ -120,11 +120,11 @@ flowchart TB
         APP["<b>App mobile</b><br/><i>Expo / React Native</i><br/><br/>Compra e painel admin<br/>no celular"]
     end
 
-    GW["<b>Gateway</b><br/><i>Nginx</i><br/>:80 :443<br/><br/>Proxy reverso HTTPS<br/>e roteamento"]
+    GW["<b>Gateway</b><br/><i>Nginx</i><br/>:80 :443 :8080<br/><br/>Proxy reverso<br/>e roteamento"]
 
     subgraph SERVICOS["  "]
         direction LR
-        LOJA["<b>Loja</b><br/><i>Express 5 + TS</i><br/>:3000<br/><br/>Clientes, catálogo<br/>e pedidos"]
+        LOJA["<b>Loja</b><br/><i>Express 5 + TS</i><br/>:3000 interna<br/><br/>Clientes, catálogo<br/>e pedidos"]
         PAG["<b>Pagamentos</b><br/><i>Express 5 + TS</i><br/>:3002<br/><br/>Cobrança via<br/>Mercado Pago"]
         NOT["<b>Notificações</b><br/><i>Express 5 + TS</i><br/><br/>Histórico<br/>de eventos"]
     end
@@ -138,19 +138,21 @@ flowchart TB
     MP["<b>Mercado Pago</b><br/><i>Sistema externo</i>"]
 
     WEB -->|HTTPS| GW
-    APP -.->|"HTTPS :3000 direto<br/>⚠ exceção — ver nota"| LOJA
+    APP -->|"HTTP :8080 /api<br/>só em desenvolvimento"| GW
 
     GW -->|"HTTP · /"| WEB
-    GW -->|"HTTP · /clientes /produtos<br/>/pedidos /categorias …"| LOJA
-    GW -->|"HTTP · /pagamentos"| PAG
+    GW -->|"HTTP · /api/"| LOJA
+    GW -->|"HTTP · /api/pagamentos"| PAG
 
     LOJA -->|SQL| DBL
     PAG -->|SQL| DBP
     NOT -->|SQL| DBN
 
-    LOJA <-->|"cache-aside<br/>+ publica eventos"| REDIS
-    PAG <-->|"consome e publica"| REDIS
-    NOT -->|"consome tudo"| REDIS
+    LOJA -->|"cache-aside (TTL)"| REDIS
+    LOJA -.->|"publica pedido.*"| REDIS
+    PAG -.->|"consome pedido.criado<br/>publica pagamento.aprovado"| REDIS
+    REDIS -.->|"pagamento.aprovado"| LOJA
+    NOT -.->|"consome os três"| REDIS
 
     PAG ==>|"HTTPS/REST<br/><b>atravessa a ACL</b>"| MP
 
@@ -177,9 +179,14 @@ ele. Não existe nenhuma seta de serviço para banco de outro serviço, nem de s
 serviço — tudo que atravessa fronteira passa pelo Redis. É a regra central do
 [ADR-002](adr/002-corte-microsservicos.md), visível de relance.
 
-**A seta tracejada do app mobile é a exceção real**, não um erro do desenho: o celular não
-confia no certificado autoassinado do Nginx, então hoje acessa a Loja direto na porta 3000.
-A SCRUM-42 resolve. Até lá, o diagrama mostra o que existe.
+**Linha cheia é chamada síncrona, tracejada é evento.** A Loja tem as duas com o Redis
+porque usa o Redis para as duas coisas: como cache, numa chamada que espera resposta, e como
+broker, publicando sem esperar ninguém.
+
+**O app mobile entra pela porta 8080, em HTTP puro.** O celular não confia no certificado
+autoassinado do Nginx, então em desenvolvimento usa uma porta sem TLS. Até a SCRUM-42 o app
+acessava a Loja direto na porta 3000; hoje essa porta não é mais publicada, e todo acesso
+passa pelo gateway.
 
 ### Como refazer no draw.io
 
@@ -204,9 +211,9 @@ Toda seta tracejada passa pelo Redis. Isso deixa visível que **nenhum serviço 
 diretamente** — a regra central da arquitetura, que o [ADR-002](adr/002-corte-microsservicos.md)
 estabelece.
 
-A seta do **App mobile direto na Loja** merece destaque em cor de alerta ou uma nota: é a
-exceção que ainda existe, porque o celular não confia no certificado autoassinado do Nginx.
-A SCRUM-42 resolve isso, e até lá o diagrama deve mostrar a realidade, não a intenção.
+O **App mobile** liga no Gateway, não na Loja, com o rótulo `HTTP :8080 /api`. Vale uma nota
+pequena junto da seta explicando que é HTTP sem TLS por causa do certificado autoassinado. A
+Loja não deve aparecer com porta publicada: a 3000 existe só na rede interna do Compose.
 
 Arquivo: `docs/diagramas/c4-containers.drawio.png`
 
@@ -255,23 +262,19 @@ pede.
 
 ---
 
-## Uma inconsistência encontrada ao levantar este diagrama
+## Uma inconsistência encontrada ao levantar este diagrama — resolvida
 
-Comparando as rotas que a Loja monta com as que o Nginx encaminha, duas não estão cobertas:
+Em 28/10, ao comparar as rotas que a Loja monta com as que o Nginx encaminhava, duas não
+estavam cobertas: **`/admin`** (o dashboard que o app mobile consome) e **`/uploads`** (as
+imagens servidas estaticamente). Uma regex listava as rotas uma por uma, e essas duas
+ficaram de fora.
 
-| Rota montada pela Loja | O Nginx encaminha? |
-|---|---|
-| `/clientes` `/produtos` `/categorias` `/enderecos` `/pedidos` `/itens-pedido` `/upload` | ✅ |
-| **`/admin`** (dashboard administrativo) | ❌ cai no frontend |
-| **`/uploads`** (imagens servidas estaticamente) | ❌ cai no frontend |
+Não quebrava nada porque o app acessava a porta 3000 direto. Mas a SCRUM-42 ia justamente
+colocar o app atrás do gateway, e o painel administrativo pararia de funcionar.
 
-Hoje isso não quebra nada, porque **só o app mobile consome `/admin/dashboard`** e ele acessa
-a porta 3000 diretamente, sem passar pelo gateway.
-
-Mas a **SCRUM-42** vai justamente fazer o mobile passar pelo Nginx — e, do jeito que a regex
-está hoje (`nginx/nginx.conf:56`), o painel administrativo do app para de funcionar no
-momento em que isso acontecer. As duas rotas precisam entrar na lista junto com aquela
-mudança.
+**A SCRUM-42 resolveu de forma melhor que a lista de rotas:** criou um `location ^~ /api/`
+que encaminha tudo sob o prefixo para a Loja. O app usa `:8080/api`, então `/api/admin` e
+`/api/uploads` passam sem que ninguém precise lembrar de cadastrar rota nova no Nginx.
 
 ---
 

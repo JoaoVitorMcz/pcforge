@@ -277,8 +277,8 @@ banco compartilhado.
 As setas de 1 a 4 passam pelo Redis: vale desenhá-lo como um elemento no meio, rotulado
 "Redis Pub/Sub", para deixar claro que nenhuma delas é chamada HTTP direta.
 
-**Legenda:** uma linha explicando que seta cheia é evento assíncrono e seta tracejada é
-chamada síncrona.
+**Legenda:** uma linha explicando que seta tracejada é evento assíncrono e seta cheia é
+chamada síncrona — a mesma convenção do C4 em [c4-arquitetura.md](c4-arquitetura.md).
 
 ---
 
