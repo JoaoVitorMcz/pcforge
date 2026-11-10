@@ -90,7 +90,7 @@ aprendizado real, e isso pede ciclos curtos com correção de rota.
 | Dimensão | Escolha | Por quê |
 |---|---|---|
 | Escopo | **preditivo** | A rubrica define o que entregar. Não muda. |
-| Marcos | **preditivo** | A entrega é 17/11. Não negociável. |
+| Marcos | **preditivo** | A apresentação é 25/11, com entrega interna em 21/11. Não negociável. |
 | Execução | **ágil** | Sprints de 2 semanas, backlog priorizado, board |
 | Estimativa | **ágil** | Story points por complexidade relativa |
 | Documentação | **preditivo** | ADRs, C4, PM Canvas — exigidos como entregáveis |
