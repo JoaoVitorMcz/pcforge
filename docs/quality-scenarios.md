@@ -22,7 +22,7 @@ A **medida** é o que diferencia um cenário de uma intenção. "O sistema deve 
 Por isso as medidas abaixo descrevem **comportamentos que um teste ou um log consegue
 provar**, e não números de latência. O projeto ainda não mediu tempos de resposta sob carga,
 e uma meta numérica sem medição seria inventada. As metas numéricas ficam no documento de
-SLOs (SCRUM-34), que define como medir cada uma.
+SLOs ([slos-observabilidade.md](slos-observabilidade.md)), que define como medir cada uma.
 
 Cada cenário indica se está **implementado** ou se é uma **meta**, e onde está a evidência.
 
