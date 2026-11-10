@@ -28,8 +28,8 @@ classificação do projeto como **Complicado** em [cynefin.md](cynefin.md).
    concluído na Sprint 1.
 3. **Mensageria via Redis Pub/Sub** com logs comprovando a circulação, até 02/11.
 4. **Documentação arquitetural completa** — C4, ADRs, Context Map, Quality Scenarios,
-   OpenAPI, SLOs — até 16/11.
-5. **9,0 pontos** na rubrica, com entrega em **17/11/2026**.
+   OpenAPI, SLOs — até 21/11.
+5. **9,0 pontos** na rubrica, com apresentação em **25/11/2026**.
 
 ### Benefícios
 
@@ -90,12 +90,17 @@ O recorte dos serviços e sua justificativa estão no
 |---|---|---|
 | **1 — Fundação** | 07/10 – 21/10 | Jira e gestão; Redis com cache-aside; DTOs e erros centralizados |
 | **2 — Mensageria** | 20/10 – 02/11 | Extrair Pagamentos e Notificações; eventos; gateway; C4 e Context Map |
-| **3 — Arquitetura** | 03/11 – 16/11 | Aggregates, ADRs, Quality Scenarios, OpenAPI, SLOs, resiliência, blue/green, runbook |
-| **Entrega** | 17/11 | Apresentação |
+| **3 — Arquitetura** | 05/11 – 21/11 | Aggregates, ADRs, Quality Scenarios, OpenAPI, SLOs, resiliência, blue/green, runbook |
+| **Entrega interna** | 21/11 | Tudo mergeado na `dev`, com folga para ensaiar |
+| **Apresentação** | 25/11 | Apresentação do projeto |
 
 ### Restrições
 
-- **Data de entrega inegociável:** 17/11/2026
+- **Data de apresentação inegociável:** 25/11/2026
+
+> Datas revisadas em 09/11/2026. O planejamento previa entrega em 17/11; a data confirmada
+> da apresentação é 25/11, e a meta interna passou a 21/11. A Sprint 3 foi estendida até 21/11
+> no Jira com a mesma justificativa.
 - Equipe de duas pessoas, sem dedicação integral
 - Sem orçamento: só ferramentas gratuitas
 - Ambiente local — sem cluster, sem Kubernetes

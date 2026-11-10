@@ -62,7 +62,7 @@ mexer na tela de retorno do checkout — detalhado no
 
 A carga do Henrique nesta sprint é 28 dos 36 pontos. Vale observar na metade da sprint.
 
-## Sprint 3 — Arquitetura · 03/11 a 16/11 · 33 pontos
+## Sprint 3 — Arquitetura · 05/11 a 21/11 · 33 pontos
 
 | Card | Resumo | Pts | Quem |
 |---|---|---|---|
