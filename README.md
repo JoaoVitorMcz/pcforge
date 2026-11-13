@@ -201,6 +201,16 @@ npm test
 
 Base: `https://pcforge.local/api`
 
+O contrato OpenAPI 3.0.3 do gateway, incluindo schemas de requisição/resposta,
+autenticação JWT e formatos de erro, está em [`docs/openapi.yaml`](docs/openapi.yaml).
+Os caminhos do arquivo são relativos ao servidor `/api`; por exemplo,
+`POST /clientes/login` corresponde a `POST https://pcforge.local/api/clientes/login`.
+Para validar o contrato com o linter Redocly CLI:
+
+```bash
+npx --yes @redocly/cli lint docs/openapi.yaml --extends minimal
+```
+
 | Método | Rota | Acesso | Descrição |
 |---|---|---|---|
 | POST | `/clientes` | público | Cadastro de cliente |
@@ -226,6 +236,8 @@ Base: `https://pcforge.local/api`
 | GET | `/pedidos/cliente/:id_cliente` | dono ou admin | Pedidos do cliente |
 | PATCH | `/pedidos/:id/status` | admin | Atualiza status |
 | PATCH | `/pedidos/:id/cancelar` | autenticado | Cancela pedido |
+| POST | `/pagamentos/mercado-pago/pedido/:id/preference` | autenticado | Inicia checkout do Mercado Pago |
+| POST | `/pagamentos/mercado-pago/confirmar` | autenticado | Consulta/confirma estado do pagamento |
 | GET | `/itens-pedido/pedido/:id_pedido` | autenticado | Itens do pedido |
 | POST · PATCH · DELETE | `/itens-pedido` | autenticado | Gerencia itens |
 | POST | `/upload` | admin | Upload de imagem |
