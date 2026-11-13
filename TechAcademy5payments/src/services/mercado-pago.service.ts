@@ -1,5 +1,25 @@
 import AppError from "../errors/app-error";
 import { Pagamento } from "../config/database";
+import CircuitBreaker from "./circuit-breaker";
+
+const REQUEST_TIMEOUT_MS = 8_000;
+const MAX_GET_RETRIES = 2;
+const INITIAL_RETRY_DELAY_MS = 300;
+const MAX_RETRY_DELAY_MS = 2_000;
+const RETRY_JITTER_MS = 250;
+const CIRCUIT_FAILURE_THRESHOLD = 5;
+const CIRCUIT_RESET_TIMEOUT_MS = 30_000;
+
+const mercadoPagoCircuitBreaker = new CircuitBreaker({
+  failureThreshold: CIRCUIT_FAILURE_THRESHOLD,
+  resetTimeoutMs: CIRCUIT_RESET_TIMEOUT_MS,
+});
+
+const TRANSIENT_ERROR_CODES = new Set([
+  "MERCADO_PAGO_TIMEOUT",
+  "MERCADO_PAGO_INDISPONIVEL",
+  "MERCADO_PAGO_RATE_LIMIT",
+]);
 
 interface MercadoPagoPreference {
   id: string;
@@ -84,7 +104,10 @@ function resolveFrontendUrl(frontendUrl?: string): string {
   return requestedUrl.origin;
 }
 
-async function parseResponse(response: Response): Promise<unknown> {
+async function parseResponse(
+  response: Response,
+  signal: AbortSignal
+): Promise<unknown> {
   const contentType = response.headers.get("content-type") || "";
 
   try {
@@ -93,7 +116,11 @@ async function parseResponse(response: Response): Promise<unknown> {
     }
 
     return await response.text();
-  } catch {
+  } catch (error) {
+    if (signal.aborted) {
+      throw error;
+    }
+
     throw new AppError(
       502,
       "Mercado Pago retornou uma resposta invalida.",
@@ -106,30 +133,111 @@ async function requestMercadoPago(
   path: string,
   init: RequestInit
 ): Promise<unknown> {
-  let response: Response;
-  try {
-    response = await fetch(`https://api.mercadopago.com${path}`, init);
-  } catch (error) {
-    console.error("Falha de rede ao acessar o Mercado Pago:", error);
-    throw new AppError(
-      502,
-      "Nao foi possivel acessar o Mercado Pago.",
-      "MERCADO_PAGO_INDISPONIVEL"
-    );
-  }
+  return mercadoPagoCircuitBreaker.execute(
+    async () => {
+      const method = (init.method || "GET").toUpperCase();
+      const maxRetries = method === "GET" ? MAX_GET_RETRIES : 0;
 
-  const data = await parseResponse(response);
+      for (let attempt = 0; ; attempt += 1) {
+        const controller = new AbortController();
+        const timeout = setTimeout(
+          () => controller.abort(),
+          REQUEST_TIMEOUT_MS
+        );
 
-  if (!response.ok) {
-    const detail = typeof data === "string" ? data : JSON.stringify(data);
-    throw new AppError(
-      502,
-      `Mercado Pago rejeitou a solicitacao: ${detail}`,
-      "MERCADO_PAGO_ERRO"
-    );
-  }
+        try {
+          const response = await fetch(`https://api.mercadopago.com${path}`, {
+            ...init,
+            signal: controller.signal,
+          });
+          if (
+            method === "GET" &&
+            deveTentarNovamente(response.status) &&
+            attempt < maxRetries
+          ) {
+            await response.body?.cancel();
+            clearTimeout(timeout);
+            await aguardarRetry(attempt);
+            continue;
+          }
 
-  return data;
+          if (response.status === 429) {
+            throw new AppError(
+              503,
+              "Mercado Pago limitou temporariamente as requisicoes.",
+              "MERCADO_PAGO_RATE_LIMIT"
+            );
+          }
+          if (response.status >= 500) {
+            throw new AppError(
+              502,
+              "Mercado Pago está temporariamente indisponível.",
+              "MERCADO_PAGO_INDISPONIVEL"
+            );
+          }
+
+          const data = await parseResponse(response, controller.signal);
+          if (!response.ok) {
+            const detail = typeof data === "string" ? data : JSON.stringify(data);
+            throw new AppError(
+              502,
+              `Mercado Pago rejeitou a solicitacao: ${detail}`,
+              "MERCADO_PAGO_ERRO"
+            );
+          }
+
+          return data;
+        } catch (error) {
+          if (error instanceof AppError) {
+            throw error;
+          }
+
+          const timedOut = controller.signal.aborted;
+          const requestError = new AppError(
+            timedOut ? 504 : 502,
+            timedOut
+              ? "Tempo limite ao acessar o Mercado Pago."
+              : "Nao foi possivel acessar o Mercado Pago.",
+            timedOut ? "MERCADO_PAGO_TIMEOUT" : "MERCADO_PAGO_INDISPONIVEL"
+          );
+
+          if (
+            attempt < maxRetries &&
+            (timedOut || error instanceof TypeError)
+          ) {
+            clearTimeout(timeout);
+            await aguardarRetry(attempt);
+            continue;
+          }
+
+          console.error("Falha ao acessar o Mercado Pago:", {
+            error: error instanceof Error ? error.name : "UnknownError",
+            code: requestError.code,
+          });
+          throw requestError;
+        } finally {
+          clearTimeout(timeout);
+        }
+      }
+    },
+    (error) =>
+      error instanceof AppError && TRANSIENT_ERROR_CODES.has(error.code)
+  );
+}
+
+function deveTentarNovamente(statusCode: number): boolean {
+  return statusCode >= 500;
+}
+
+async function aguardarRetry(retryIndex: number): Promise<void> {
+  const exponentialDelay = Math.min(
+    INITIAL_RETRY_DELAY_MS * 2 ** retryIndex,
+    MAX_RETRY_DELAY_MS
+  );
+  const jitter = Math.floor(Math.random() * RETRY_JITTER_MS);
+  await new Promise<void>((resolve) =>
+    setTimeout(resolve, exponentialDelay + jitter)
+  );
 }
 
 export async function criarPreferenciaMercadoPago(

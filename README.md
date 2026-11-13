@@ -160,6 +160,13 @@ MERCADO_PAGO_ACCESS_TOKEN=TEST-xxxxxxxx
 Sem o token, o restante da aplicação funciona normalmente.
 O token é carregado somente pelo serviço `payments`; a Loja não acessa o Mercado Pago.
 
+As chamadas externas têm timeout de 8 segundos. Consultas GET repetem até duas
+vezes em falhas de rede, timeout ou respostas 5xx, com backoff exponencial e
+jitter. Respostas 4xx não são repetidas. A criação de preferência é POST e não é repetida
+automaticamente para evitar duplicidades. Após cinco falhas transitórias
+consecutivas, o circuit breaker rejeita chamadas por 30 segundos e então
+permite uma chamada de teste antes de fechar ou reabrir.
+
 ---
 
 ## Testes

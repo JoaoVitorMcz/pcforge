@@ -86,3 +86,8 @@ registra a falha. O pedido e a transição de status já foram persistidos e nã
 o cliente não deve repetir a operação cegamente. Outbox e reenvio automático permanecem fora
 do escopo definido pelo ADR-001. A aprovação já persistida pode ser publicada novamente em
 uma confirmação posterior; a Loja trata o evento de aprovação de forma idempotente.
+
+Para `produto.atualizado.v1`, uma falha de publicação também retorna HTTP 503, mas a criação,
+atualização ou desativação do produto já pode ter sido persistida. Como o Pub/Sub não retém
+mensagens, a invalidação não ocorre nas instâncias sem consumidor inscrito; não repita a
+mutação cegamente.
