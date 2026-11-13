@@ -1,0 +1,1165 @@
+openapi: 3.0.3
+info:
+  title: PC Forge API
+  version: 1.0.0
+  description: |
+    Contrato dos endpoints de clientes, catálogo, pedidos e checkout expostos
+    pelo API Gateway. Todas as rotas deste documento são publicadas sob `/api`;
+    o gateway remove esse prefixo antes de encaminhar a requisição ao serviço.
+servers:
+  - url: https://pcforge.local/api
+    description: API Gateway local com HTTPS
+tags:
+  - name: Clientes
+    description: Cadastro e autenticação de clientes.
+  - name: Catálogo
+    description: Consulta pública e manutenção administrativa do catálogo.
+  - name: Pedidos
+    description: Criação e consulta de pedidos.
+  - name: Pagamentos
+    description: Checkout e consulta do estado do pagamento.
+paths:
+  /clientes:
+    post:
+      tags: [Clientes]
+      summary: Cadastrar cliente
+      operationId: cadastrarCliente
+      security: []
+      description: |
+        O campo `admin`, quando enviado, só concede administração se o cadastro
+        também for feito por um administrador autenticado; cadastros públicos
+        são sempre clientes comuns.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClienteCriacao"
+      responses:
+        "201":
+          description: Cliente criado.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClienteCriado"
+        "400":
+          $ref: "#/components/responses/ErroRequisicao"
+        "409":
+          $ref: "#/components/responses/ErroConflito"
+        "500":
+          $ref: "#/components/responses/ErroInterno"
+
+  /clientes/login:
+    post:
+      tags: [Clientes]
+      summary: Autenticar cliente
+      operationId: autenticarCliente
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginCliente"
+      responses:
+        "200":
+          description: Login concluído; o token JWT expira em 24 horas.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResposta"
+        "400":
+          $ref: "#/components/responses/ErroRequisicao"
+        "401":
+          $ref: "#/components/responses/ErroNaoAutenticado"
+        "500":
+          $ref: "#/components/responses/ErroInterno"
+
+  /produtos:
+    get:
+      tags: [Catálogo]
+      summary: Listar produtos ativos
+      operationId: listarProdutos
+      security: []
+      description: |
+        Sem `page` e `limit`, retorna uma lista simples. Se qualquer um deles
+        for informado, retorna `{ dados, paginacao }`. A paginação usa página 1,
+        limite 10 por padrão e limite máximo 100.
+      parameters:
+        - $ref: "#/components/parameters/Pagina"
+        - $ref: "#/components/parameters/Limite"
+      responses:
+        "200":
+          description: Produtos ativos.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: array
+                    items:
+                      $ref: "#/components/schemas/Produto"
+                  - $ref: "#/components/schemas/ProdutosPaginados"
+        "500":
+          $ref: "#/components/responses/ErroInterno"
+    post:
+      tags: [Catálogo]
+      summary: Criar produto
+      operationId: criarProduto
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProdutoCriacao"
+      responses:
+        "201":
+          description: Produto criado.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProdutoMutacao"
+        "400":
+          $ref: "#/components/responses/ErroRequisicao"
+        "401":
+          $ref: "#/components/responses/ErroAuthMiddleware"
+        "403":
+          $ref: "#/components/responses/ErroAuthMiddleware"
+        "500":
+          $ref: "#/components/responses/ErroInterno"
+
+  /produtos/destaque:
+    get:
+      tags: [Catálogo]
+      summary: Listar produtos em destaque
+      operationId: listarProdutosDestaque
+      security: []
+      description: Resposta simples ou paginada conforme os parâmetros de paginação.
+      parameters:
+        - $ref: "#/components/parameters/Pagina"
+        - $ref: "#/components/parameters/Limite"
+      responses:
+        "200":
+          description: Produtos ativos marcados como destaque.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: array
+                    items:
+                      $ref: "#/components/schemas/Produto"
+                  - $ref: "#/components/schemas/ProdutosPaginados"
+        "500":
+          $ref: "#/components/responses/ErroInterno"
+
+  /produtos/buscar:
+    get:
+      tags: [Catálogo]
+      summary: Buscar produtos por nome
+      operationId: buscarProdutos
+      security: []
+      description: A busca parcial diferencia resultados pelo nome e retorna apenas produtos ativos.
+      parameters:
+        - name: nome
+          in: query
+          required: true
+          description: Trecho do nome do produto.
+          schema:
+            type: string
+            minLength: 1
+        - $ref: "#/components/parameters/Pagina"
+        - $ref: "#/components/parameters/Limite"
+      responses:
+        "200":
+          description: Produtos encontrados; resposta simples ou paginada.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: array
+                    items:
+                      $ref: "#/components/schemas/Produto"
+                  - $ref: "#/components/schemas/ProdutosPaginados"
+        "400":
+          $ref: "#/components/responses/ErroRequisicao"
+        "500":
+          $ref: "#/components/responses/ErroInterno"
+
+  /produtos/{id}:
+    parameters:
+      - $ref: "#/components/parameters/IdProduto"
+    get:
+      tags: [Catálogo]
+      summary: Consultar produto
+      operationId: buscarProduto
+      security: []
+      responses:
+        "200":
+          description: Produto ativo.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Produto"
+        "404":
+          $ref: "#/components/responses/ErroNaoEncontrado"
+        "500":
+          $ref: "#/components/responses/ErroInterno"
+    put:
+      tags: [Catálogo]
+      summary: Atualizar produto
+      operationId: atualizarProduto
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProdutoAtualizacao"
+      responses:
+        "200":
+          description: Produto atualizado.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProdutoMutacao"
+        "400":
+          $ref: "#/components/responses/ErroRequisicao"
+        "401":
+          $ref: "#/components/responses/ErroAuthMiddleware"
+        "403":
+          $ref: "#/components/responses/ErroAuthMiddleware"
+        "404":
+          $ref: "#/components/responses/ErroNaoEncontrado"
+        "500":
+          $ref: "#/components/responses/ErroInterno"
+    delete:
+      tags: [Catálogo]
+      summary: Desativar produto
+      operationId: desativarProduto
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Produto desativado.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MensagemResposta"
+        "401":
+          $ref: "#/components/responses/ErroAuthMiddleware"
+        "403":
+          $ref: "#/components/responses/ErroAuthMiddleware"
+        "404":
+          $ref: "#/components/responses/ErroNaoEncontrado"
+        "500":
+          $ref: "#/components/responses/ErroInterno"
+
+  /categorias:
+    get:
+      tags: [Catálogo]
+      summary: Listar categorias
+      operationId: listarCategorias
+      security: []
+      description: Resposta simples ou paginada conforme os parâmetros de paginação.
+      parameters:
+        - $ref: "#/components/parameters/Pagina"
+        - $ref: "#/components/parameters/Limite"
+      responses:
+        "200":
+          description: Categorias.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: array
+                    items:
+                      $ref: "#/components/schemas/Categoria"
+                  - $ref: "#/components/schemas/CategoriasPaginadas"
+        "500":
+          $ref: "#/components/responses/ErroInterno"
+    post:
+      tags: [Catálogo]
+      summary: Criar categoria
+      operationId: criarCategoria
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoriaCriacao"
+      responses:
+        "201":
+          description: Categoria criada.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Categoria"
+        "401":
+          $ref: "#/components/responses/ErroAuthMiddleware"
+        "403":
+          $ref: "#/components/responses/ErroAuthMiddleware"
+        "500":
+          $ref: "#/components/responses/ErroInterno"
+
+  /categorias/{id}:
+    parameters:
+      - $ref: "#/components/parameters/IdCategoria"
+    get:
+      tags: [Catálogo]
+      summary: Consultar categoria
+      operationId: buscarCategoria
+      security: []
+      responses:
+        "200":
+          description: Categoria encontrada.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Categoria"
+        "404":
+          $ref: "#/components/responses/ErroNaoEncontrado"
+        "500":
+          $ref: "#/components/responses/ErroInterno"
+    put:
+      tags: [Catálogo]
+      summary: Atualizar categoria
+      operationId: atualizarCategoria
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoriaAtualizacao"
+      responses:
+        "200":
+          description: Categoria atualizada.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Categoria"
+        "401":
+          $ref: "#/components/responses/ErroAuthMiddleware"
+        "403":
+          $ref: "#/components/responses/ErroAuthMiddleware"
+        "404":
+          $ref: "#/components/responses/ErroNaoEncontrado"
+        "500":
+          $ref: "#/components/responses/ErroInterno"
+    delete:
+      tags: [Catálogo]
+      summary: Excluir categoria
+      operationId: excluirCategoria
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Categoria excluída.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MensagemResposta"
+        "401":
+          $ref: "#/components/responses/ErroAuthMiddleware"
+        "403":
+          $ref: "#/components/responses/ErroAuthMiddleware"
+        "404":
+          $ref: "#/components/responses/ErroNaoEncontrado"
+        "500":
+          $ref: "#/components/responses/ErroInterno"
+
+  /pedidos:
+    get:
+      tags: [Pedidos]
+      summary: Listar todos os pedidos
+      operationId: listarPedidos
+      description: Restrito a administradores; resposta simples ou paginada.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Pagina"
+        - $ref: "#/components/parameters/Limite"
+      responses:
+        "200":
+          description: Pedidos com cliente, endereço e itens.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: array
+                    items:
+                      $ref: "#/components/schemas/Pedido"
+                  - $ref: "#/components/schemas/PedidosPaginados"
+        "401":
+          $ref: "#/components/responses/ErroAuthMiddleware"
+        "403":
+          $ref: "#/components/responses/ErroAuthMiddleware"
+        "500":
+          $ref: "#/components/responses/ErroInterno"
+    post:
+      tags: [Pedidos]
+      summary: Criar pedido
+      operationId: criarPedido
+      description: |
+        O cliente autenticado é usado como `id_cliente`. Somente administradores
+        podem informar `id_cliente` para criar um pedido em nome de outro cliente.
+        O endereço deve pertencer ao cliente e os produtos precisam estar ativos
+        e ter estoque suficiente.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PedidoCriacao"
+      responses:
+        "201":
+          description: Pedido criado com itens.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PedidoCriado"
+        "400":
+          $ref: "#/components/responses/ErroRequisicao"
+        "401":
+          $ref: "#/components/responses/ErroAuthMiddleware"
+        "403":
+          $ref: "#/components/responses/ErroAuthMiddleware"
+        "404":
+          $ref: "#/components/responses/ErroNaoEncontrado"
+        "409":
+          $ref: "#/components/responses/ErroConflito"
+        "500":
+          $ref: "#/components/responses/ErroInterno"
+
+  /pedidos/cliente/{id_cliente}:
+    get:
+      tags: [Pedidos]
+      summary: Listar pedidos de um cliente
+      operationId: listarPedidosDoCliente
+      description: O cliente só pode consultar os próprios pedidos; administradores podem consultar qualquer cliente.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id_cliente
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+        - $ref: "#/components/parameters/Pagina"
+        - $ref: "#/components/parameters/Limite"
+      responses:
+        "200":
+          description: Pedidos do cliente, em lista simples ou paginada.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: array
+                    items:
+                      $ref: "#/components/schemas/Pedido"
+                  - $ref: "#/components/schemas/PedidosPaginados"
+        "401":
+          $ref: "#/components/responses/ErroAuthMiddleware"
+        "403":
+          $ref: "#/components/responses/ErroAuthMiddleware"
+        "500":
+          $ref: "#/components/responses/ErroInterno"
+
+  /pedidos/{id}:
+    get:
+      tags: [Pedidos]
+      summary: Consultar pedido
+      operationId: buscarPedido
+      description: O pedido só pode ser consultado pelo cliente proprietário ou por um administrador.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdPedido"
+      responses:
+        "200":
+          description: Pedido com cliente, endereço e itens.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Pedido"
+        "401":
+          $ref: "#/components/responses/ErroAuthMiddleware"
+        "403":
+          $ref: "#/components/responses/ErroAcessoNegado"
+        "404":
+          $ref: "#/components/responses/ErroNaoEncontrado"
+        "500":
+          $ref: "#/components/responses/ErroInterno"
+
+  /pagamentos/mercado-pago/pedido/{id}/preference:
+    post:
+      tags: [Pagamentos]
+      summary: Iniciar checkout do Mercado Pago
+      operationId: iniciarCheckout
+      description: Cria uma preferência de checkout para um pedido pertencente ao cliente autenticado.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Identificador do pedido.
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CheckoutPreferencia"
+      responses:
+        "200":
+          description: Preferência de checkout criada.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckoutResposta"
+        "400":
+          $ref: "#/components/responses/ErroPagamento"
+        "401":
+          $ref: "#/components/responses/ErroPagamento"
+        "403":
+          $ref: "#/components/responses/ErroPagamento"
+        "409":
+          $ref: "#/components/responses/ErroPagamento"
+        "502":
+          $ref: "#/components/responses/ErroPagamento"
+        "500":
+          $ref: "#/components/responses/ErroPagamento"
+
+  /pagamentos/mercado-pago/confirmar:
+    post:
+      tags: [Pagamentos]
+      summary: Consultar e confirmar pagamento
+      operationId: confirmarPagamento
+      description: |
+        Quando `payment_id` é informado, o serviço consulta o Mercado Pago e
+        valida pedido, moeda e valor. Sem identificador de pagamento, usa
+        `status` como estado de retorno (ou `pending` quando omitido).
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConfirmacaoPagamento"
+      responses:
+        "200":
+          description: Estado de pagamento consultado.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConfirmacaoResposta"
+        "400":
+          $ref: "#/components/responses/ErroPagamento"
+        "401":
+          $ref: "#/components/responses/ErroPagamento"
+        "403":
+          $ref: "#/components/responses/ErroPagamento"
+        "409":
+          $ref: "#/components/responses/ErroPagamento"
+        "502":
+          $ref: "#/components/responses/ErroPagamento"
+        "500":
+          $ref: "#/components/responses/ErroPagamento"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Token emitido por `POST /clientes/login`; validade de 24 horas.
+  parameters:
+    Pagina:
+      name: page
+      in: query
+      required: false
+      description: Número da página (padrão 1).
+      schema:
+        type: integer
+        minimum: 1
+    Limite:
+      name: limit
+      in: query
+      required: false
+      description: Itens por página (padrão 10, máximo 100).
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+    IdProduto:
+      name: id
+      in: path
+      required: true
+      description: Identificador do produto.
+      schema:
+        type: integer
+        minimum: 1
+    IdCategoria:
+      name: id
+      in: path
+      required: true
+      description: Identificador da categoria.
+      schema:
+        type: integer
+        minimum: 1
+    IdPedido:
+      name: id
+      in: path
+      required: true
+      description: Identificador do pedido.
+      schema:
+        type: integer
+        minimum: 1
+  responses:
+    ErroRequisicao:
+      description: Requisição inválida; formato do middleware de erros da API da Loja.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErroApi"
+    ErroNaoAutenticado:
+      description: Credenciais inválidas no login; formato do middleware de erros da API da Loja.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErroApi"
+    ErroConflito:
+      description: Conflito com um recurso existente ou regra de negócio.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErroApi"
+    ErroNaoEncontrado:
+      description: Recurso não encontrado.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErroApi"
+    ErroAcessoNegado:
+      description: Acesso negado; formato do middleware global de erros da API da Loja.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErroApi"
+    ErroInterno:
+      description: Erro inesperado da API da Loja.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErroApi"
+    ErroAuthMiddleware:
+      description: |
+        Resposta direta dos middlewares de autenticação/autorização da Loja.
+        Diferentemente dos erros passados ao middleware global, este formato
+        atualmente contém apenas `mensagem`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErroAuthMiddleware"
+    ErroPagamento:
+      description: Erro do serviço de Pagamentos (formato próprio do serviço).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErroPagamento"
+  schemas:
+    ErroApi:
+      type: object
+      description: Formato emitido pelo middleware global de erros da API da Loja.
+      required: [erro]
+      properties:
+        erro:
+          type: object
+          required: [codigo, mensagem]
+          properties:
+            codigo:
+              type: string
+              example: REQUISICAO_INVALIDA
+            mensagem:
+              type: string
+              example: O corpo da requisição deve ser um objeto JSON.
+    ErroAuthMiddleware:
+      type: object
+      description: Formato atualmente emitido diretamente pelos middlewares de auth da Loja.
+      required: [mensagem]
+      properties:
+        mensagem:
+          type: string
+          example: Token nao fornecido.
+    ErroPagamento:
+      type: object
+      description: Formato emitido pelo middleware de erros do serviço de Pagamentos.
+      required: [mensagem, codigo]
+      properties:
+        mensagem:
+          type: string
+          example: Pedido ainda nao disponivel no servico de Pagamentos; tente novamente.
+        codigo:
+          type: string
+          example: PEDIDO_AINDA_NAO_RECEBIDO
+    ClienteCriacao:
+      type: object
+      required: [nome, email, senha, cpf]
+      properties:
+        nome:
+          type: string
+          minLength: 1
+        email:
+          type: string
+          format: email
+        senha:
+          type: string
+          minLength: 8
+          description: Deve conter ao menos uma letra maiúscula, uma minúscula e um número.
+        cpf:
+          type: string
+          description: CPF com 11 dígitos, com ou sem pontuação.
+          example: "123.456.789-09"
+        telefone:
+          type: string
+          nullable: true
+        admin:
+          type: boolean
+          description: Ignorado para cadastros públicos; somente um administrador pode conceder esse papel.
+    LoginCliente:
+      type: object
+      required: [email, senha]
+      properties:
+        email:
+          type: string
+          format: email
+        senha:
+          type: string
+    Cliente:
+      type: object
+      required: [id_cliente, nome, email, telefone, cpf, ativo, admin]
+      properties:
+        id_cliente:
+          type: integer
+        nome:
+          type: string
+        email:
+          type: string
+          format: email
+        telefone:
+          type: string
+          nullable: true
+        cpf:
+          type: string
+          nullable: true
+        ativo:
+          type: boolean
+        admin:
+          type: boolean
+    ClienteCriado:
+      type: object
+      required: [mensagem, cliente]
+      properties:
+        mensagem:
+          type: string
+          example: Cliente criado com sucesso.
+        cliente:
+          $ref: "#/components/schemas/Cliente"
+    LoginResposta:
+      type: object
+      required: [mensagem, token, cliente]
+      properties:
+        mensagem:
+          type: string
+          example: Login realizado com sucesso.
+        token:
+          type: string
+          description: JWT assinado com validade de um dia.
+        cliente:
+          $ref: "#/components/schemas/Cliente"
+    ProdutoCriacao:
+      type: object
+      required: [nome, valor]
+      properties:
+        nome:
+          type: string
+          minLength: 1
+        descricao:
+          type: string
+          nullable: true
+        valor:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMinimum: true
+        id_categoria:
+          type: integer
+          minimum: 1
+          nullable: true
+        imagem:
+          type: string
+          nullable: true
+        destaque:
+          type: boolean
+          default: false
+        estoque:
+          type: integer
+          minimum: 0
+          default: 0
+    ProdutoAtualizacao:
+      type: object
+      minProperties: 1
+      properties:
+        nome:
+          type: string
+          minLength: 1
+        descricao:
+          type: string
+          nullable: true
+        valor:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMinimum: true
+        id_categoria:
+          type: integer
+          minimum: 1
+          nullable: true
+        imagem:
+          type: string
+          nullable: true
+        destaque:
+          type: boolean
+        estoque:
+          type: integer
+          minimum: 0
+    Produto:
+      type: object
+      required: [id_produto, nome, valor, ativo, destaque, estoque]
+      properties:
+        id_produto:
+          type: integer
+        nome:
+          type: string
+        descricao:
+          type: string
+          nullable: true
+        valor:
+          type: number
+          format: double
+        ativo:
+          type: boolean
+        id_categoria:
+          type: integer
+          nullable: true
+        imagem:
+          type: string
+          nullable: true
+        destaque:
+          type: boolean
+        estoque:
+          type: integer
+      additionalProperties: true
+    ProdutoMutacao:
+      type: object
+      required: [mensagem, produto]
+      properties:
+        mensagem:
+          type: string
+        produto:
+          $ref: "#/components/schemas/Produto"
+    CategoriaCriacao:
+      type: object
+      required: [nome]
+      properties:
+        nome:
+          type: string
+        descricao:
+          type: string
+          nullable: true
+        ativo:
+          type: boolean
+          default: true
+    CategoriaAtualizacao:
+      type: object
+      properties:
+        nome:
+          type: string
+        descricao:
+          type: string
+          nullable: true
+        ativo:
+          type: boolean
+    Categoria:
+      type: object
+      required: [id_categoria, nome, ativo]
+      properties:
+        id_categoria:
+          type: integer
+        nome:
+          type: string
+        descricao:
+          type: string
+          nullable: true
+        ativo:
+          type: boolean
+      additionalProperties: true
+    Paginacao:
+      type: object
+      required: [paginaAtual, porPagina, totalItens, totalPaginas]
+      properties:
+        paginaAtual:
+          type: integer
+        porPagina:
+          type: integer
+        totalItens:
+          type: integer
+        totalPaginas:
+          type: integer
+    ProdutosPaginados:
+      type: object
+      required: [dados, paginacao]
+      properties:
+        dados:
+          type: array
+          items:
+            $ref: "#/components/schemas/Produto"
+        paginacao:
+          $ref: "#/components/schemas/Paginacao"
+    CategoriasPaginadas:
+      type: object
+      required: [dados, paginacao]
+      properties:
+        dados:
+          type: array
+          items:
+            $ref: "#/components/schemas/Categoria"
+        paginacao:
+          $ref: "#/components/schemas/Paginacao"
+    PedidoItemCriacao:
+      type: object
+      required: [id_produto, quantidade]
+      properties:
+        id_produto:
+          type: integer
+          minimum: 1
+        quantidade:
+          type: integer
+          minimum: 1
+    PedidoCriacao:
+      type: object
+      required: [id_endereco_entrega, itens]
+      properties:
+        id_endereco_entrega:
+          type: integer
+          minimum: 1
+        itens:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/PedidoItemCriacao"
+        id_cliente:
+          type: integer
+          minimum: 1
+          description: Opcional e usado somente quando um administrador cria o pedido em nome de outro cliente.
+        metodo:
+          type: string
+          nullable: true
+    ClienteResumoPedido:
+      type: object
+      properties:
+        id_cliente:
+          type: integer
+        nome:
+          type: string
+        email:
+          type: string
+          format: email
+        telefone:
+          type: string
+          nullable: true
+    EnderecoPedido:
+      type: object
+      properties:
+        id_endereco:
+          type: integer
+        id_cliente:
+          type: integer
+        numero:
+          type: string
+          nullable: true
+        complemento:
+          type: string
+          nullable: true
+        bairro:
+          type: string
+          nullable: true
+        cidade:
+          type: string
+          nullable: true
+        estado:
+          type: string
+          nullable: true
+        cep:
+          type: string
+          nullable: true
+      additionalProperties: true
+    ItemPedido:
+      type: object
+      properties:
+        id_item:
+          type: integer
+        id_pedido:
+          type: integer
+        id_produto:
+          type: integer
+        quantidade:
+          type: integer
+        preco_unitario:
+          type: number
+          format: double
+        produto:
+          $ref: "#/components/schemas/Produto"
+      additionalProperties: true
+    Pedido:
+      type: object
+      properties:
+        id_pedido:
+          type: integer
+        id_cliente:
+          type: integer
+        id_endereco_entrega:
+          type: integer
+        data_pedido:
+          type: string
+          format: date-time
+          nullable: true
+        metodo:
+          type: string
+          nullable: true
+        valor:
+          type: number
+          format: double
+          nullable: true
+        status:
+          type: string
+          nullable: true
+          description: Status atual (por exemplo, pendente, pago, em_preparacao, enviado, entregue ou cancelado).
+        data_pagamento:
+          type: string
+          format: date-time
+          nullable: true
+        cliente:
+          $ref: "#/components/schemas/ClienteResumoPedido"
+        endereco_entrega:
+          $ref: "#/components/schemas/EnderecoPedido"
+        itens:
+          type: array
+          items:
+            $ref: "#/components/schemas/ItemPedido"
+      additionalProperties: true
+    PedidoCriado:
+      type: object
+      required: [mensagem, pedido]
+      properties:
+        mensagem:
+          type: string
+          example: Pedido criado com sucesso.
+        pedido:
+          $ref: "#/components/schemas/Pedido"
+    PedidosPaginados:
+      type: object
+      required: [dados, paginacao]
+      properties:
+        dados:
+          type: array
+          items:
+            $ref: "#/components/schemas/Pedido"
+        paginacao:
+          $ref: "#/components/schemas/Paginacao"
+    CheckoutPreferencia:
+      type: object
+      properties:
+        frontend_url:
+          type: string
+          format: uri
+          description: Origem HTTP(S) permitida para redirecionamentos do checkout.
+    PedidoPagamento:
+      type: object
+      required: [id_pedido, status, valor]
+      properties:
+        id_pedido:
+          type: integer
+        status:
+          type: string
+          example: pendente
+        valor:
+          type: number
+          format: double
+    CheckoutResposta:
+      type: object
+      required: [mensagem, pedido, id]
+      properties:
+        mensagem:
+          type: string
+          example: Checkout do Mercado Pago iniciado.
+        pedido:
+          $ref: "#/components/schemas/PedidoPagamento"
+        id:
+          type: string
+          description: Identificador da preferência do Mercado Pago.
+        init_point:
+          type: string
+          format: uri
+        sandbox_init_point:
+          type: string
+          format: uri
+    ConfirmacaoPagamento:
+      type: object
+      required: [pedido_id]
+      properties:
+        pedido_id:
+          type: integer
+          minimum: 1
+        payment_id:
+          type: integer
+          minimum: 1
+          nullable: true
+        status:
+          type: string
+          description: Estado de retorno usado quando payment_id não é informado; padrão pending.
+          default: pending
+    ConfirmacaoResposta:
+      type: object
+      required: [mensagem, paymentStatus, paymentId, verifiedWithMercadoPago, pedido]
+      properties:
+        mensagem:
+          type: string
+          example: Status do pagamento consultado com sucesso.
+        paymentStatus:
+          type: string
+        paymentId:
+          type: integer
+          nullable: true
+        verifiedWithMercadoPago:
+          type: boolean
+        pedido:
+          $ref: "#/components/schemas/PedidoPagamento"
+    MensagemResposta:
+      type: object
+      required: [mensagem]
+      properties:
+        mensagem:
+          type: string
