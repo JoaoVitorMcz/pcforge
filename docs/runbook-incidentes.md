@@ -209,22 +209,27 @@ rode `docker compose restart nginx`.
 
 ## Rollback
 
-O procedimento de hoje volta para a última versão marcada
-([versionamento](gestao/versionamento.md)):
+O procedimento de hoje volta para a última versão marcada. Como o Compose atual mantém
+uma instância por serviço, essa operação pode causar indisponibilidade:
 
 ```bash
 git fetch --tags
-git checkout v2.0.0                       # a última tag estável
-docker compose up -d --build <serviço>    # só o que quebrou
-docker compose ps                         # confirme (healthy)
+git switch --detach v2.0.0
+docker compose up -d --build backend payments frontend
+docker compose ps
+docker compose logs --since=10m nginx backend payments frontend
+curl -fsS http://localhost:8080/api/produtos
 ```
 
-Funciona, mas tem custo: enquanto o container novo é construído e sobe, o serviço fica fora do ar.
-A estratégia blue/green da SCRUM-37 vai substituir este procedimento por uma troca sem
-indisponibilidade, mantendo a versão anterior de pé até a nova estar saudável.
+Substitua `v2.0.0` pela última tag estável. Se só um serviço for afetado, recrie apenas esse
+serviço; se a compatibilidade entre versões não for conhecida, volte Loja e Pagamentos juntos.
+Depois da recuperação, retorne à branch de trabalho antes de fazer novas alterações.
 
-Depois do rollback, volte para a branch de trabalho (`git checkout dev`). Abra um card no Jira com
-a causa, para o defeito não voltar no próximo deploy.
+A estratégia blue/green prevista, que mantém a versão anterior ativa até a nova estar saudável,
+está em [estratégia de deploy e rollback](estrategia-deploy.md). Ela depende de uma configuração
+de deploy que ainda não existe no Compose local.
+
+Abra um card no Jira com a causa, para o defeito não voltar no próximo deploy.
 
 ## Depois de qualquer incidente
 
