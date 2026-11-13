@@ -72,6 +72,17 @@ gh release create v2.0.0 --title "v2.0.0 — Microsservicos" --notes-file CHANGE
 A tag é **anotada** (`-a`), nunca leve: guarda autor, data e mensagem, e é o que o GitHub usa
 para montar a página de Releases.
 
+### Imagens publicadas pelo CI
+
+Em `push` para `main`, depois que o build das imagens e todos os testes passam, o workflow
+publica os quatro serviços de aplicação no GitHub Container Registry. A tag de cada imagem
+combina a release alcançável mais alta e o SHA curto do commit, por exemplo
+`v2.0.0-a1b2c3d4e5f6`. O workflow não publica em pull requests nem usa `latest`; se o commit
+em `main` ainda não contiver uma tag `v2.0.0` ou posterior, a publicação falha.
+
+Esse job entrega imagens versionadas ao registro, mas não atualiza um servidor. A estratégia
+de ativação e rollback está em [estratégia de deploy](../estrategia-deploy.md).
+
 ## Histórico
 
 | Versão | Data | O que marca |
