@@ -2,6 +2,33 @@
 
 Entrega da SCRUM-37.
 
+## Pipeline de build e publicação de imagens
+
+O workflow `.github/workflows/ci.yml` identifica os estágios **Build Docker images**,
+testes e **Deploy images to GHCR**. O build das quatro imagens de aplicação
+(`backend`, `frontend`, `notifications` e `payments`) roda também em pull requests, sem
+publicá-las. Os testes continuam rodando em PR; a publicação depende do build e de todos
+os jobs de teste.
+
+O job de deploy só executa em `push` para `main`; eventos `pull_request` e
+`workflow_dispatch` não publicam imagens. O destino é o GitHub Container Registry
+(GHCR), usando o `GITHUB_TOKEN` com permissão `packages: write`. São publicados:
+
+- `ghcr.io/joaovitormcz/pcforge-backend`
+- `ghcr.io/joaovitormcz/pcforge-frontend`
+- `ghcr.io/joaovitormcz/pcforge-notifications`
+- `ghcr.io/joaovitormcz/pcforge-payments`
+
+Cada imagem recebe a tag `<release>-<sha curto>`, por exemplo `v2.0.0-a1b2c3d4e5f6`.
+O workflow procura a release `v2.0.0` ou posterior mais alta que seja ancestral do
+commit em `main`; se não encontrar, falha explicitamente em vez de publicar uma imagem
+sem versão de release. O SHA torna a tag única para cada publicação da mesma release.
+Não é publicada a tag mutável `latest`.
+
+Esse job publica imagens versionadas; **não faz rollout automático em servidor**. A
+ativação da cor e a troca de upstream continuam seguindo o procedimento blue/green
+definido abaixo.
+
 ## Escopo e estado atual
 
 O `docker-compose.yml` atual sobe uma única instância de `frontend`, `backend`,
