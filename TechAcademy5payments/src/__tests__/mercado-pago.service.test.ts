@@ -41,6 +41,7 @@ describe("integração com Mercado Pago", () => {
 
   afterEach(() => {
     fetchMock.mockRestore();
+    jest.useRealTimers();
     if (originalAccessToken === undefined) {
       delete process.env.MERCADO_PAGO_ACCESS_TOKEN;
     } else {
@@ -118,6 +119,94 @@ describe("integração com Mercado Pago", () => {
       "https://api.mercadopago.com/v1/payments/9001"
     );
     expect(payment.status).toBe("approved");
+  });
+
+  it("repete consultas GET em falha de rede e aplica timeout a cada tentativa", async () => {
+    fetchMock
+      .mockRejectedValueOnce(new TypeError("fetch failed"))
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            id: 9001,
+            status: "approved",
+            external_reference: "42",
+            transaction_amount: 50,
+            currency_id: "BRL",
+          }),
+          { status: 200, headers: { "content-type": "application/json" } }
+        )
+      );
+
+    await expect(buscarPagamentoMercadoPago(9001)).resolves.toMatchObject({
+      status: "approved",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[0][1].signal).toBeInstanceOf(AbortSignal);
+    expect(fetchMock.mock.calls[1][1].signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it("repete consultas GET em respostas HTTP transitórias", async () => {
+    fetchMock
+      .mockResolvedValueOnce(new Response("indisponível", { status: 503 }))
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ id: 9001, status: "approved" }),
+          { status: 200, headers: { "content-type": "application/json" } }
+        )
+      );
+
+    await expect(buscarPagamentoMercadoPago(9001)).resolves.toMatchObject({
+      status: "approved",
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    [400, 502, "MERCADO_PAGO_ERRO"],
+    [429, 503, "MERCADO_PAGO_RATE_LIMIT"],
+  ])("não repete consultas GET para HTTP %i", async (status, errorStatus, code) => {
+    fetchMock.mockResolvedValue(new Response("solicitacao rejeitada", { status }));
+
+    await expect(buscarPagamentoMercadoPago(9001)).rejects.toMatchObject({
+      statusCode: errorStatus,
+      code,
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("não repete a criação de preferência POST quando o Mercado Pago retorna 5xx", async () => {
+    fetchMock.mockResolvedValue(
+      new Response("indisponível", { status: 503 })
+    );
+
+    await expect(criarPreferenciaMercadoPago(pagamento)).rejects.toMatchObject({
+      statusCode: 502,
+      code: "MERCADO_PAGO_INDISPONIVEL",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][1].method).toBe("POST");
+  });
+
+  it("interrompe a chamada quando o Mercado Pago excede o timeout", async () => {
+    jest.useFakeTimers();
+    fetchMock.mockImplementation((_url, init) => new Promise((_resolve, reject) => {
+      init.signal?.addEventListener("abort", () => {
+        reject(new DOMException("Aborted", "AbortError"));
+      });
+    }));
+
+    const preferenceRequest = criarPreferenciaMercadoPago(pagamento);
+    const timeoutAssertion = expect(preferenceRequest).rejects.toMatchObject({
+      statusCode: 504,
+      code: "MERCADO_PAGO_TIMEOUT",
+    });
+    await jest.advanceTimersByTimeAsync(8_000);
+
+    await timeoutAssertion;
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("recusa uma origem de retorno que não foi permitida", async () => {
