@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   buildAssetUrl,
   fetchJson,
@@ -80,6 +80,22 @@ const STATUS_CORES = {
   cancelado: { bg: "rgba(255,77,109,0.1)", color: "#ff4d6d", label: "Cancelado" },
 };
 
+// Estilo "visualmente escondido": o input continua no DOM e funcional,
+// mas não aparece. NÃO use display:none aqui.
+const hiddenFileInputStyle = {
+  position: "absolute",
+  width: 1,
+  height: 1,
+  padding: 0,
+  margin: -1,
+  overflow: "hidden",
+  clip: "rect(0,0,0,0)",
+  whiteSpace: "nowrap",
+  border: 0,
+  opacity: 0,
+  pointerEvents: "none",
+};
+
 // ─────────────────────────────────────────
 // ABA PRODUTOS
 // ─────────────────────────────────────────
@@ -96,9 +112,12 @@ function AbaProdutos() {
   const [erro, setErro] = useState("");
   const [busca, setBusca] = useState("");
   const [paginaAtual, setPaginaAtual] = useState(1);
+  const [erroPreview, setErroPreview] = useState(false);
+  const imagemInputRef = useRef(null);
 
   useEffect(() => { carregarDados(); }, []);
   useEffect(() => { setPaginaAtual(1); }, [busca]);
+  useEffect(() => { setErroPreview(false); }, [form.imagem]);
 
   const carregarDados = async () => {
     try {
@@ -121,19 +140,27 @@ function AbaProdutos() {
   };
 
   const handleImagemUpload = async (e) => {
-    const file = e.target.files?.[0];
+    const input = e.target;
+    const file = input.files?.[0];
     if (!file) return;
     const formData = new FormData();
     formData.append("imagem", file);
     try {
       setEnviandoImagem(true); setErro(""); setStatus("");
       const data = await sendFormData("/upload/imagem", "POST", formData);
+      console.log("Resposta do upload:", data);
       if (!data?.url) throw new Error("A API nao retornou a URL da imagem.");
-      setForm((prev) => ({ ...prev, imagem: buildAssetUrl(data.url) }));
+      const urlFinal = buildAssetUrl(data.url);
+      console.log("URL final da imagem:", urlFinal);
+      setForm((prev) => ({ ...prev, imagem: urlFinal }));
       setStatus("Imagem enviada com sucesso.");
     } catch (err) {
+      console.error("Erro no upload:", err);
       setErro(err.message || "Erro ao fazer upload da imagem.");
-    } finally { setEnviandoImagem(false); e.target.value = ""; }
+    } finally {
+      setEnviandoImagem(false);
+      input.value = "";
+    }
   };
 
   const handleEditar = (produto) => {
@@ -239,11 +266,52 @@ function AbaProdutos() {
             Produto em destaque
           </label>
 
-          <label>Imagem do produto<input name="imagem" type="file" accept="image/*" onChange={handleImagemUpload} disabled={enviandoImagem} /></label>
+          {/* ── Imagem ── */}
+          <div className="admin-image-field" style={{ position: "relative" }}>
+            <span className="admin-image-label">Imagem do produto</span>
+            <div className="admin-image-picker">
+              <label
+                htmlFor="admin-imagem-input"
+                className="admin-image-picker-button"
+                style={{
+                  cursor: enviandoImagem ? "not-allowed" : "pointer",
+                  opacity: enviandoImagem ? 0.6 : 1,
+                }}
+              >
+                {enviandoImagem ? "Enviando..." : "Escolher arquivo"}
+              </label>
+              <span>{form.imagem ? "Imagem definida" : "Nenhum arquivo escolhido"}</span>
+            </div>
+            <input
+              id="admin-imagem-input"
+              ref={imagemInputRef}
+              type="file"
+              name="imagem"
+              accept="image/*"
+              aria-label="Imagem do produto"
+              onChange={handleImagemUpload}
+              disabled={enviandoImagem}
+              style={hiddenFileInputStyle}
+            />
+          </div>
           {enviandoImagem && <p className="admin-message admin-success">Enviando imagem...</p>}
           {form.imagem && (
             <div className="admin-img-preview">
-              <img src={form.imagem} alt="Preview" onError={(e) => (e.target.style.display = "none")} />
+              {!erroPreview ? (
+                <img
+                  src={form.imagem}
+                  alt="Preview"
+                  style={{ width: 120, height: 120, objectFit: "cover", borderRadius: 8, display: "block" }}
+                  onError={() => {
+                    console.error("Falha ao carregar imagem:", form.imagem);
+                    setErroPreview(true);
+                  }}
+                />
+              ) : (
+                <p className="admin-message admin-error">
+                  Não foi possível carregar a imagem. Verifique a URL: {form.imagem}
+                </p>
+              )}
               <button type="button" className="admin-clear-img-btn" onClick={() => setForm(prev => ({ ...prev, imagem: "" }))}>✕ Remover</button>
             </div>
           )}

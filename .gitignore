@@ -27,7 +27,9 @@ TechAcademy5back/uploads
 # Docker
 docker-compose.override.yml
 
-# local HTTPS certificates (.pfx not committed; dev self-signed certs are committed)
+# Local HTTPS certificates and private keys; generate them per machine.
+certs/*.crt
+certs/*.key
 certs/*.pfx
 
 # Build / gerados

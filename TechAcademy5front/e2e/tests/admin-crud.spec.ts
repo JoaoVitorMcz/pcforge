@@ -12,6 +12,44 @@ test.describe('CRUD Admin de produtos e categorias', () => {
     page.on('dialog', (dialog) => dialog.accept());
   });
 
+  test('seleciona e envia imagem de produto', async ({ page }) => {
+    await page.route('**/categorias', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([{ id_categoria: 1, nome: 'Placas de vídeo' }]),
+      })
+    );
+    await page.route('**/produtos', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([]),
+      })
+    );
+    await page.route('**/upload/imagem', (route) =>
+      route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify({ url: '/uploads/produto.png' }),
+      })
+    );
+
+    await page.goto('/admin');
+
+    const fileChooserPromise = page.waitForEvent('filechooser');
+    await page.locator('label[for="admin-imagem-input"]').click();
+    const fileChooser = await fileChooserPromise;
+    expect(await fileChooser.element().getAttribute('name')).toBe('imagem');
+    await fileChooser.setFiles({
+      name: 'produto.png',
+      mimeType: 'image/png',
+      buffer: Buffer.from('89504e470d0a1a0a', 'hex'),
+    });
+
+    await expect(page.getByText('Imagem enviada com sucesso.')).toBeVisible();
+  });
+
   test('CRUD de categorias completa', async ({ page }) => {
     let categorias = [];
 
