@@ -30,8 +30,8 @@ function Exec-Mkcert {
   Write-Host "Instalando CA local (mkcert -install)..."
   mkcert -install
 
-  $crt = Join-Path $certDir "server.crt"
-  $key = Join-Path $certDir "server.key"
+  $crt = Join-Path $certDir "pcforge.local.crt"
+  $key = Join-Path $certDir "pcforge.local.key"
 
   Write-Host "Gerando certificados para: localhost, 127.0.0.1, pcforge.local"
   mkcert -cert-file $crt -key-file $key localhost 127.0.0.1 pcforge.local
@@ -55,8 +55,8 @@ function Exec-DockerOpenSslFallback {
     return $false
   }
 
-  $crt = Join-Path $certDir "server.crt"
-  $key = Join-Path $certDir "server.key"
+  $crt = Join-Path $certDir "pcforge.local.crt"
+  $key = Join-Path $certDir "pcforge.local.key"
 
   $dockerArgs = @(
     'run',
@@ -66,7 +66,7 @@ function Exec-DockerOpenSslFallback {
     'alpine',
     'sh',
     '-c',
-    "apk add --no-cache openssl >/dev/null 2>&1 && openssl req -x509 -nodes -newkey rsa:2048 -keyout /certs/server.key -out /certs/server.crt -days 365 -subj '/CN=localhost'"
+    "apk add --no-cache openssl >/dev/null 2>&1 && openssl req -x509 -nodes -newkey rsa:2048 -keyout /certs/pcforge.local.key -out /certs/pcforge.local.crt -days 365 -subj '/CN=pcforge.local' -addext 'subjectAltName=DNS:localhost,DNS:pcforge.local,IP:127.0.0.1'"
   )
 
   & docker @dockerArgs
