@@ -189,6 +189,11 @@ impede que essa submissão contamine o domínio.
 
 ## O desenho
 
+![Context Map — PC Forge](diagramas/context-map.drawio.png)
+
+A versão em Mermaid abaixo traz a mesma informação em texto, que o GitHub renderiza e o diff
+mostra linha a linha.
+
 ```mermaid
 flowchart TB
     subgraph CORE["CORE DOMAIN"]

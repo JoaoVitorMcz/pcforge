@@ -63,6 +63,8 @@ em foco, **cinza tracejado** para sistema externo — o que não é nosso e não
 Para refazer no draw.io: o PC Forge no centro, as pessoas acima, o Mercado Pago à direita.
 Três setas com os rótulos acima. Legenda no canto distinguindo os três tipos.
 
+![C4 nível 1 — Contexto](diagramas/c4-contexto.drawio.png)
+
 Arquivo: `docs/diagramas/c4-contexto.drawio.png`
 
 ---
@@ -86,7 +88,7 @@ Levantado do `docker-compose.yml` real.
 | **Gateway** | Nginx | 80, 443, 8080 | Proxy reverso e roteamento entre serviços — a única porta publicada |
 | **Loja** | Express 5 + TypeScript | 3000, só na rede interna | Clientes, catálogo e pedidos — o core domain |
 | **Pagamentos** | Express 5 + TypeScript | 3002 | Cobrança via Mercado Pago |
-| **Notificações** | Express 5 + TypeScript | — | Consome eventos e guarda o histórico |
+| **Notificações** | Node.js + TypeScript (worker) | — (sem servidor HTTP) | Consome eventos e guarda o histórico |
 | **Banco da Loja** | MySQL 8 | — | Clientes, produtos, pedidos, RBAC |
 | **Banco de Pagamentos** | MySQL 8 | — | Transações e preferências |
 | **Banco de Notificações** | MySQL 8 | — | Histórico de eventos |
@@ -102,13 +104,13 @@ Levantado do `docker-compose.yml` real.
 | Gateway | Loja | HTTP — `/api/` e as rotas sem prefixo `/clientes`, `/produtos`, … |
 | Gateway | Pagamentos | HTTP — `/api/pagamentos` e `/pagamentos` |
 | Loja | Banco da Loja | SQL/TCP |
-| Loja | Redis | Cache-aside (TTL) **e** publica eventos |
+| Loja | Redis | Cache-aside (TTL) **e** publica `pedido.*` e `produto.atualizado.v1` |
 | Pagamentos | Banco de Pagamentos | SQL/TCP |
 | Pagamentos | Redis | Consome `pedido.criado.v1`, publica `pagamento.aprovado.v1` |
 | Pagamentos | Mercado Pago | HTTPS/REST, atravessando a ACL |
 | Notificações | Banco de Notificações | SQL/TCP |
 | Notificações | Redis | Consome todos os eventos |
-| Redis | Loja | Entrega `pagamento.aprovado.v1` |
+| Redis | Loja | Entrega `pagamento.aprovado.v1` e `produto.atualizado.v1` |
 
 ### O diagrama
 
@@ -126,7 +128,7 @@ flowchart TB
         direction LR
         LOJA["<b>Loja</b><br/><i>Express 5 + TS</i><br/>:3000 interna<br/><br/>Clientes, catálogo<br/>e pedidos"]
         PAG["<b>Pagamentos</b><br/><i>Express 5 + TS</i><br/>:3002<br/><br/>Cobrança via<br/>Mercado Pago"]
-        NOT["<b>Notificações</b><br/><i>Express 5 + TS</i><br/><br/>Histórico<br/>de eventos"]
+        NOT["<b>Notificações</b><br/><i>Node.js + TS · worker</i><br/><br/>Histórico<br/>de eventos"]
     end
 
     DBL[("<b>Banco da Loja</b><br/><i>MySQL 8</i><br/><br/>clientes, produtos<br/>pedidos, RBAC")]
@@ -149,9 +151,9 @@ flowchart TB
     NOT -->|SQL| DBN
 
     LOJA -->|"cache-aside (TTL)"| REDIS
-    LOJA -.->|"publica pedido.*"| REDIS
+    LOJA -.->|"publica pedido.*<br/>e produto.atualizado"| REDIS
     PAG -.->|"consome pedido.criado<br/>publica pagamento.aprovado"| REDIS
-    REDIS -.->|"pagamento.aprovado"| LOJA
+    REDIS -.->|"pagamento.aprovado<br/>produto.atualizado"| LOJA
     NOT -.->|"consome os três"| REDIS
 
     PAG ==>|"HTTPS/REST<br/><b>atravessa a ACL</b>"| MP
@@ -215,6 +217,8 @@ O **App mobile** liga no Gateway, não na Loja, com o rótulo `HTTP :8080 /api`.
 pequena junto da seta explicando que é HTTP sem TLS por causa do certificado autoassinado. A
 Loja não deve aparecer com porta publicada: a 3000 existe só na rede interna do Compose.
 
+![C4 nível 2 — Containers](diagramas/c4-containers.drawio.png)
+
 Arquivo: `docs/diagramas/c4-containers.drawio.png`
 
 ---
@@ -231,11 +235,11 @@ flowchart LR
     NOT["<b>Notificações</b>"]
     REDIS{{"<b>Redis Pub/Sub</b>"}}
 
-    LOJA -->|"<b>publica</b><br/>pedido.criado.v1<br/>pedido.status-alterado.v1"| REDIS
+    LOJA -->|"<b>publica</b><br/>pedido.criado.v1<br/>pedido.status-alterado.v1<br/>produto.atualizado.v1"| REDIS
     PAG -->|"<b>publica</b><br/>pagamento.aprovado.v1"| REDIS
 
     REDIS -->|"pedido.criado.v1"| PAG
-    REDIS -->|"pagamento.aprovado.v1"| LOJA
+    REDIS -->|"pagamento.aprovado.v1<br/>produto.atualizado.v1"| LOJA
     REDIS -->|"os três eventos"| NOT
 
     style LOJA fill:#1168bd,stroke:#0b4884,color:#fff
@@ -246,15 +250,20 @@ flowchart LR
 
 | Serviço | Publica | Consome | Arquivo |
 |---|---|---|---|
-| **Loja** | `pedido.criado.v1`<br/>`pedido.status-alterado.v1` | `pagamento.aprovado.v1` | `events/pedido.event.ts`<br/>`events/pagamento-aprovado.subscriber.ts` |
+| **Loja** | `pedido.criado.v1`<br/>`pedido.status-alterado.v1`<br/>`produto.atualizado.v1` | `pagamento.aprovado.v1`<br/>`produto.atualizado.v1` | `events/pedido.event.ts`<br/>`events/produto.event.ts`<br/>`events/pagamento-aprovado.subscriber.ts`<br/>`events/produto-atualizado.subscriber.ts` |
 | **Pagamentos** | `pagamento.aprovado.v1` | `pedido.criado.v1` | `events/pagamento-aprovado.event.ts`<br/>`events/pedido-criado.consumer.ts` |
-| **Notificações** | — | os três | `events/event-types.ts` |
+| **Notificações** | — | `pedido.*` e `pagamento.aprovado.v1` | `events/event-types.ts` |
 
 **A Loja é publicadora e assinante ao mesmo tempo**, e é esse ciclo que torna a confirmação
 de pagamento assíncrona: ela publica `pedido.criado`, o Pagamentos cobra, publica
 `pagamento.aprovado`, e só então a Loja marca o pedido como pago. Foi exatamente essa volta
 que motivou dividir a SCRUM-23 em dois cards — publicar não depende de ninguém, consumir
 depende do serviço de Pagamentos existir.
+
+**`produto.atualizado.v1` não cruza fronteira.** A Loja publica e ela mesma consome, para
+invalidar o cache de produtos quando o catálogo muda (SCRUM-25). Por isso ele aparece no C4,
+que mostra por onde as mensagens passam, e não no [Context Map](ddd-context-map.md), que
+mostra só as dependências entre contextos.
 
 **Notificações só escuta.** Não publica nada e ninguém depende dele. É por isso que ele é um
 subdomínio *generic* — e é também a prova viva de que as mensagens circulam, que a rubrica
