@@ -89,7 +89,7 @@ O recorte dos serviços e sua justificativa estão no
 | Sprint | Período | Entrega |
 |---|---|---|
 | **1 — Fundação** | 07/10 – 21/10 | Jira e gestão; Redis com cache-aside; DTOs e erros centralizados |
-| **2 — Mensageria** | 20/10 – 02/11 | Extrair Pagamentos e Notificações; eventos; gateway; C4 e Context Map |
+| **2 — Mensageria** | 23/10 – 02/11 | Extrair Pagamentos e Notificações; eventos; gateway; C4 e Context Map |
 | **3 — Arquitetura** | 05/11 – 21/11 | Aggregates, ADRs, Quality Scenarios, OpenAPI, SLOs, resiliência, blue/green, runbook |
 | **Entrega interna** | 21/11 | Tudo mergeado na `dev`, com folga para ensaiar |
 | **Apresentação** | 25/11 | Apresentação do projeto |
@@ -134,13 +134,14 @@ gantt
     Fundacao - Redis, cache e gestao    :done, s1, 2026-10-07, 2026-10-21
 
     section Sprint 2
-    Mensageria - servicos e eventos     :active, s2, 2026-10-20, 2026-11-02
+    Mensageria - servicos e eventos     :done, s2, 2026-10-23, 2026-11-02
 
     section Sprint 3
-    Arquitetura - docs e resiliencia    :s3, 2026-11-03, 2026-11-16
+    Arquitetura - docs e resiliencia    :done, s3, 2026-11-05, 2026-11-21
 
     section Entrega
-    Apresentacao                        :milestone, m1, 2026-11-17, 0d
+    Entrega interna (folga para ensaio) :milestone, m1, 2026-11-21, 0d
+    Apresentacao                        :milestone, m2, 2026-11-25, 0d
 ```
 
 ### Custos

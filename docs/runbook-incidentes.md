@@ -140,14 +140,11 @@ docker compose logs --tail 100 payments
 Se o `payments` estiver `(healthy)` e a loja funcionar, mas o pagamento travar, a causa está na API
 externa.
 
-**Ação, hoje.** A chamada ao Mercado Pago **ainda não tem limite de tempo**
-(`TechAcademy5payments/src/services/mercado-pago.service.ts:111`). Não há o que fazer no PC Forge
-além de esperar a API do Mercado Pago voltar e avisar os clientes. Reiniciar o `payments` não
-ajuda, porque o problema está fora do sistema.
-
-**Ação, depois da SCRUM-35.** Com timeout, retry e circuit breaker, o checkout passa a responder
-**503** na hora, em vez de travar. O log registra a abertura do circuito. A ação continua sendo
-esperar, mas o cliente recebe uma resposta clara, e o circuito testa de novo sozinho
+**Ação.** Desde a SCRUM-35, a chamada tem timeout de 8 s, retry com backoff nas consultas e
+circuit breaker (abre após 5 falhas seguidas e testa de novo depois de 30 s). Com o circuito
+aberto, o checkout responde **503** na hora, em vez de travar, e o log registra a abertura.
+Reiniciar o `payments` não ajuda, porque o problema está fora do sistema: a ação é esperar a API
+do Mercado Pago voltar e avisar os clientes
 ([QS-3](quality-scenarios.md#qs-3--disponibilidade-o-mercado-pago-fica-lento-ou-fora)).
 
 **Confirmação.** Um pagamento de teste é criado, e o log de `payments` deixa de registrar falhas na
