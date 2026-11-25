@@ -20,7 +20,7 @@ A Sprint 1 já foi entregue, então as estimativas não são chute: usam o traba
 
 Acima de 8, o card é grande demais e deve ser quebrado.
 
-## Sprint 1 — Fundação · 07/10 a 21/10 · 38 pontos
+## Sprint 1 — Fundação · 07/10 a 21/10 (encerrada no Jira em 23/10) · 43 pontos
 
 | Card | Resumo | Pts | Quem | Estado |
 |---|---|---|---|---|
@@ -37,22 +37,28 @@ Acima de 8, o card é grande demais e deve ser quebrado.
 | SCRUM-14 | Análise Cynefin | 2 | João | ✅ |
 | SCRUM-15 | PM Canvas | 3 | João | ✅ |
 | SCRUM-16 | Refinar e estimar o backlog | 2 | João | ✅ |
+| SCRUM-45 | Regra das 24h e ID do card nas branches | 2 | João | ✅ |
+| SCRUM-46 | Loja consome `pagamento.aprovado` e marca o pedido como pago | 3 | Henrique | ✅ |
 
-**Velocidade medida da Sprint 1: 38 pontos** — a única medida real que a dupla tem.
+O planejamento previa os 13 primeiros cards, com 38 pontos. A SCRUM-45 (2) e a SCRUM-46 (3)
+entraram durante a sprint: o Jira fechou a Sprint 1 com **15 cards e 43 pontos**.
 
-## Sprint 2 — Mensageria · 20/10 a 02/11 · 36 pontos
+**Velocidade medida da Sprint 1: 43 pontos.**
 
-| Card | Resumo | Pts | Quem |
-|---|---|---|---|
-| SCRUM-41 | Extrair Pagamentos com banco próprio | **8** | Henrique |
-| SCRUM-24 | Serviço de Notificações com banco próprio | 5 | Henrique |
-| SCRUM-23 | Loja publica eventos de pedido | 5 | Henrique |
-| SCRUM-42 | Nginx como gateway e mobile pelo gateway | 5 | Henrique |
-| SCRUM-26 | Logs estruturados com id por requisição | 3 | Henrique |
-| SCRUM-28 | Diagramas C4 (Contexto e Containers) | 3 | João |
-| SCRUM-29 | Context Map e Bounded Contexts | 3 | João |
-| SCRUM-25 | Invalidar cache via evento | 2 | Henrique |
-| SCRUM-27 | Releases versionadas | 2 | João |
+## Sprint 2 — Mensageria · 23/10 a 02/11 (encerrada no Jira em 05/11) · 36 pontos
+
+| Card | Resumo | Pts | Quem | Estado |
+|---|---|---|---|---|
+| SCRUM-41 | Extrair Pagamentos com banco próprio | **8** | Henrique | ✅ |
+| SCRUM-24 | Serviço de Notificações com banco próprio | 5 | Henrique | ✅ |
+| SCRUM-42 | Nginx como gateway e mobile pelo gateway | 5 | Henrique | ✅ |
+| SCRUM-26 | Logs estruturados com id por requisição | 3 | Henrique | ✅ |
+| SCRUM-28 | Diagramas C4 (Contexto e Containers) | 3 | João | ✅ |
+| SCRUM-29 | Context Map e Bounded Contexts | 3 | João | ✅ |
+| SCRUM-30 | Entities, Value Objects e Aggregates | 3 | João | ✅ |
+| SCRUM-23 | Loja publica eventos de pedido | 2 | Henrique | ✅ |
+| SCRUM-25 | Invalidar cache via evento | 2 | Henrique | ✅ |
+| SCRUM-27 | Releases versionadas | 2 | João | ✅ |
 
 **SCRUM-41 é o card mais arriscado do projeto inteiro.** São 8 pontos porque não é só mover
 código: cria serviço, cria banco, inverte o fluxo de confirmação de pagamento e obriga a
@@ -60,39 +66,34 @@ mexer na tela de retorno do checkout — detalhado no
 [ADR-002](../adr/002-corte-microsservicos.md). A SCRUM-23 publica `pedido.criado.v1`, que
 é a entrada de dados necessária para a SCRUM-41 persistir os pedidos recebidos.
 
-A carga do Henrique nesta sprint é 28 dos 36 pontos. Vale observar na metade da sprint.
+A carga do Henrique nesta sprint foi de 25 dos 36 pontos.
 
-## Sprint 3 — Arquitetura · 05/11 a 21/11 · 33 pontos
+## Sprint 3 — Arquitetura · 05/11 a 21/11 (encerrada no Jira em 24/11) · 32 pontos
 
-| Card | Resumo | Pts | Quem |
+| Card | Resumo | Pts | Quem | Estado |
+|---|---|---|---|---|
+| SCRUM-33 | OpenAPI/Swagger da API | 5 | Henrique | ✅ |
+| SCRUM-35 | Resiliência no Pagamentos (timeout, retry, circuit breaker) | 5 | Henrique | ✅ |
+| SCRUM-36 | Pipeline CI/CD com deploy | 5 | Henrique | ✅ |
+| SCRUM-37 | Blue/green com Nginx e rollback | 5 | Henrique | ✅ |
+| SCRUM-31 | ADRs principais (inclui ADR do banco) | 3 | João | ✅ |
+| SCRUM-34 | SLOs/SLIs e observabilidade | 3 | João | ✅ |
+| SCRUM-32 | Quality Scenarios | 2 | João | ✅ |
+| SCRUM-38 | Runbook de incidentes | 2 | João | ✅ |
+| SCRUM-47 | Desenhar C4 e Context Map no draw.io | 2 | João | ✅ |
+
+## Resultado
+
+| Sprint | Cards | Pontos no Jira | Observação |
 |---|---|---|---|
-| SCRUM-33 | OpenAPI/Swagger da API | 5 | a definir |
-| SCRUM-35 | Resiliência no Pagamentos (timeout, retry, circuit breaker) | 5 | a definir |
-| SCRUM-36 | Pipeline CI/CD com deploy | 5 | a definir |
-| SCRUM-37 | Blue/green com Nginx e rollback | 5 | a definir |
-| SCRUM-30 | Entities, Value Objects e Aggregates | 3 | a definir |
-| SCRUM-31 | ADRs principais (inclui ADR do banco) | 3 | a definir |
-| SCRUM-34 | SLOs/SLIs e observabilidade | 3 | a definir |
-| SCRUM-32 | Quality Scenarios | 2 | a definir |
-| SCRUM-38 | Runbook de incidentes | 2 | a definir |
+| 1 | 15 | 43 | SCRUM-45 e SCRUM-46 entraram durante a sprint |
+| 2 | 10 | 36 | concentrou o risco técnico (SCRUM-41) |
+| 3 | 9 | 32 | quase toda documentação, dividida entre os dois |
+| **Total** | **34** | **111** | 17 cards para cada um |
 
-**Nove cards sem responsável.** Precisa ser dividido antes da sprint começar.
+Fora das sprints há a **SCRUM-48**, do tipo Erro: registro retroativo do estoque que não era
+debitado, corrigido em 29/08 (commit `9ce98d0`), antes de o board existir.
 
-## Leitura do plano
-
-| Sprint | Pontos | Observação |
-|---|---|---|
-| 1 | 38 | entregue |
-| 2 | 36 | a maior parte no Henrique |
-| 3 | 33 | ninguém atribuído |
-| **Total** | **107** | |
-
-As três sprints ficam entre 33 e 38 pontos, abaixo da velocidade já comprovada de 38. O plano
-é viável **se** a Sprint 2 não escorregar: ela concentra o risco técnico, e a Sprint 3 é
-quase toda documentação, que não pode ser comprimida no fim sem perder rubrica.
-
-## Pendências de organização do board
-
-- **SCRUM-4 "Subtarefa 2.1"** é card de exemplo do Jira, sem responsável nem conteúdo.
-  Apagar — ele polui o board que o avaliador vai olhar.
-- **Nove cards da Sprint 3 sem responsável** (SCRUM-30 a 38). Dividir antes de 03/11.
+O plano original somava 107 pontos. A diferença vem dos cards que entraram no meio do
+caminho, registrados acima. A Sprint 2 não escorregou, e a Sprint 3 fechou na entrega
+interna de 21/11.
